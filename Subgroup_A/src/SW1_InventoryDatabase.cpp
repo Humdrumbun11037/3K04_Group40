@@ -40,4 +40,12 @@ namespace SW1 {
         }
         return 0;
     }
+    std::string get_all_inventory() {
+        std::string result = "\n--- CURRENT INVENTORY ---\n";
+        for (const auto& item : inventory) {
+            result += item.first + ": " + std::to_string(item.second.amount) + " mg\n";
+        }
+        result += "---------------------------\n";
+        return result;
+    }
 }

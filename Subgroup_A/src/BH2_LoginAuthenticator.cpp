@@ -24,4 +24,7 @@ namespace BH2 {
             }
         }
     }
+    void reset_attempts() {
+        failed_attempts = 0;
+    }
 }

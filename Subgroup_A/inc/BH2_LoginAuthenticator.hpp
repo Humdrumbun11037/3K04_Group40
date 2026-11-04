@@ -5,6 +5,7 @@
 
 namespace BH2 {
     std::string check_user(std::string username, std::string password);
+    void reset_attempts();
 }
 
 #endif

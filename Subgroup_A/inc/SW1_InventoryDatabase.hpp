@@ -8,6 +8,7 @@ namespace SW1 {
     int get_drug_amount(std::string drugname);
     int add_drug(std::string drugname, int drug_amount, int drawer_id);
     int remove_drug(std::string drugname, int drug_amount, int drawer_id);
+    std::string get_all_inventory();
 }
 
 #endif
