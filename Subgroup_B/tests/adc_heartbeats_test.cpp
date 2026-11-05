@@ -9,6 +9,7 @@
 #include "tests/fakes/fake_adc_registry.hpp"
 #include "tests/fakes/fake_alarm_notifier.hpp"
 #include "tests/fakes/fake_clock.hpp"
+#include "tests/fakes/fake_permissions.hpp"
 #include "tests/fakes/fake_history.hpp"
 #include "tests/fakes/fake_maintenance_status.hpp"
 
@@ -22,7 +23,7 @@ struct Setup {
     FakeHistory history;
     AdcHeartbeats heartbeats{clock, maintenance, notifier, history};
     Setup() {
-        heartbeats.monitor("ADC-1");
+        heartbeats.monitor(1);
     }
 };
 
@@ -31,10 +32,10 @@ struct Setup {
 static void row1_heartbeat_resets_missed_count() {
     Setup s;
     s.clock.advance(170);
-    assert(s.heartbeats.heartbeatReceived("ADC-1") == HeartbeatVerdict::Accepted);
+    assert(s.heartbeats.heartbeatReceived(1) == HeartbeatVerdict::Accepted);
     s.clock.advance(170);   // 340 s since start, but only 170 s since the heartbeat
     s.heartbeats.checkAll();
-    assert(s.heartbeats.status("ADC-1") == AdcStatus::Online);
+    assert(s.heartbeats.status(1) == AdcStatus::Online);
     assert(s.notifier.raised.empty());
 }
 
@@ -42,15 +43,15 @@ static void row1_heartbeat_brings_offline_adc_back_online() {
     Setup s;
     s.clock.advance(180);
     s.heartbeats.checkAll();
-    assert(s.heartbeats.status("ADC-1") == AdcStatus::Offline);
-    s.heartbeats.heartbeatReceived("ADC-1");
-    assert(s.heartbeats.status("ADC-1") == AdcStatus::Online);
+    assert(s.heartbeats.status(1) == AdcStatus::Offline);
+    s.heartbeats.heartbeatReceived(1);
+    assert(s.heartbeats.status(1) == AdcStatus::Online);
 }
 
 static void row1_heartbeat_from_unmonitored_adc_rejected() {
     Setup s;
-    assert(s.heartbeats.heartbeatReceived("ADC-9") == HeartbeatVerdict::NotMonitored);
-    assert(s.heartbeats.status("ADC-9") == AdcStatus::NotMonitored);
+    assert(s.heartbeats.heartbeatReceived(9) == HeartbeatVerdict::NotMonitored);
+    assert(s.heartbeats.status(9) == AdcStatus::NotMonitored);
 }
 
 // --- spec row 2: 3 missed periods, not in maintenance (cpp rows A and D) ---
@@ -59,20 +60,20 @@ static void row2_two_missed_periods_still_online() {
     Setup s;   // cpp row A
     s.clock.advance(179);
     s.heartbeats.checkAll();
-    assert(s.heartbeats.status("ADC-1") == AdcStatus::Online);
+    assert(s.heartbeats.status(1) == AdcStatus::Online);
     assert(s.notifier.raised.empty());
 }
 
 static void row2_three_missed_periods_offline_and_alarm() {
     Setup s;   // cpp row D
-    s.heartbeats.monitor("ADC-2");
+    s.heartbeats.monitor(2);
     s.clock.advance(180);
-    s.heartbeats.heartbeatReceived("ADC-2");   // only ADC-1 stays silent
+    s.heartbeats.heartbeatReceived(2);   // only ADC-1 stays silent
     s.heartbeats.checkAll();
-    assert(s.heartbeats.status("ADC-1") == AdcStatus::Offline);
-    assert(s.heartbeats.status("ADC-2") == AdcStatus::Online);
+    assert(s.heartbeats.status(1) == AdcStatus::Offline);
+    assert(s.heartbeats.status(2) == AdcStatus::Online);
     assert(s.notifier.raised.size() == 1);
-    assert(s.notifier.raised[0].adc == "ADC-1");
+    assert(s.notifier.raised[0].adc == 1);
     assert(s.notifier.raised[0].type == AlarmType::AdcOffline);
 }
 
@@ -80,22 +81,22 @@ static void row2_three_missed_periods_offline_and_alarm() {
 
 static void row3_silence_during_maintenance_offline_no_alarm() {
     Setup s;
-    s.maintenance.start("ADC-1");
+    s.maintenance.start(1);
     s.clock.advance(600);
     s.heartbeats.checkAll();
-    assert(s.heartbeats.status("ADC-1") == AdcStatus::Offline);
+    assert(s.heartbeats.status(1) == AdcStatus::Offline);
     assert(s.notifier.raised.empty());
 }
 
 static void row3_heartbeat_during_maintenance_back_online() {
     Setup s;
-    s.maintenance.start("ADC-1");
+    s.maintenance.start(1);
     s.clock.advance(600);
     s.heartbeats.checkAll();
-    s.heartbeats.heartbeatReceived("ADC-1");
-    s.maintenance.end("ADC-1");
+    s.heartbeats.heartbeatReceived(1);
+    s.maintenance.end(1);
     s.heartbeats.checkAll();
-    assert(s.heartbeats.status("ADC-1") == AdcStatus::Online);
+    assert(s.heartbeats.status(1) == AdcStatus::Online);
     assert(s.notifier.raised.empty());
 }
 
@@ -103,13 +104,13 @@ static void row3_heartbeat_during_maintenance_back_online() {
 
 static void row4_maintenance_ends_still_silent_offline_and_alarm() {
     Setup s;
-    s.maintenance.start("ADC-1");
+    s.maintenance.start(1);
     s.clock.advance(600);
     s.heartbeats.checkAll();
     assert(s.notifier.raised.empty());
-    s.maintenance.end("ADC-1");
+    s.maintenance.end(1);
     s.heartbeats.checkAll();
-    assert(s.heartbeats.status("ADC-1") == AdcStatus::Offline);
+    assert(s.heartbeats.status(1) == AdcStatus::Offline);
     assert(s.notifier.raised.size() == 1);
     assert(s.notifier.raised[0].type == AlarmType::AdcOffline);
 }
@@ -130,11 +131,11 @@ static void invariant_alarm_before_maintenance_stays_open() {
     Setup s;
     s.clock.advance(180);
     s.heartbeats.checkAll();                    // offline, one alarm
-    s.maintenance.start("ADC-1");               // window begins while offline
+    s.maintenance.start(1);               // window begins while offline
     s.clock.advance(600);
     s.heartbeats.checkAll();
-    assert(s.heartbeats.status("ADC-1") == AdcStatus::Offline);
-    s.maintenance.end("ADC-1");
+    assert(s.heartbeats.status(1) == AdcStatus::Offline);
+    s.maintenance.end(1);
     s.heartbeats.checkAll();
     assert(s.notifier.raised.size() == 1);      // not withdrawn, not repeated
 }
@@ -143,7 +144,7 @@ static void invariant_new_offline_spell_raises_new_alarm() {
     Setup s;
     s.clock.advance(180);
     s.heartbeats.checkAll();
-    s.heartbeats.heartbeatReceived("ADC-1");    // back online
+    s.heartbeats.heartbeatReceived(1);    // back online
     s.clock.advance(180);
     s.heartbeats.checkAll();                    // silent again
     assert(s.notifier.raised.size() == 2);
@@ -151,20 +152,20 @@ static void invariant_new_offline_spell_raises_new_alarm() {
 
 static void invariant_decommissioned_adc_never_alarms() {
     Setup s;
-    s.heartbeats.stopMonitoring("ADC-1");
+    s.heartbeats.stopMonitoring(1);
     s.clock.advance(1000);
     s.heartbeats.checkAll();
     assert(s.notifier.raised.empty());
-    assert(s.heartbeats.status("ADC-1") == AdcStatus::NotMonitored);
+    assert(s.heartbeats.status(1) == AdcStatus::NotMonitored);
 }
 
 static void monitor_twice_changes_nothing() {
     Setup s;
     s.clock.advance(120);
-    s.heartbeats.monitor("ADC-1");              // must not reset the silence
+    s.heartbeats.monitor(1);              // must not reset the silence
     s.clock.advance(60);
     s.heartbeats.checkAll();
-    assert(s.heartbeats.status("ADC-1") == AdcStatus::Offline);
+    assert(s.heartbeats.status(1) == AdcStatus::Offline);
 }
 
 // --- AdcHealth history entries (never block a change or an alarm) ---
@@ -177,7 +178,7 @@ static void health_offline_recorded() {
     const HistoryEntry& e = s.history.entries[0];
     assert(e.kind == "AdcHealth");
     assert(e.who == "HMS");
-    assert(e.adc == "ADC-1");
+    assert(e.adc == 1);
     assert(e.detail == "ADC-1 offline: 3 heartbeat periods missed");
     assert(e.time == 180);
 }
@@ -187,7 +188,7 @@ static void health_back_online_recorded() {
     s.clock.advance(180);
     s.heartbeats.checkAll();
     s.clock.advance(5);
-    s.heartbeats.heartbeatReceived("ADC-1");
+    s.heartbeats.heartbeatReceived(1);
     assert(s.history.entries.size() == 2);
     assert(s.history.entries[1].detail == "ADC-1 back online");
     assert(s.history.entries[1].time == 185);
@@ -195,12 +196,12 @@ static void health_back_online_recorded() {
 
 static void health_offline_in_maintenance_recorded_once() {
     Setup s;
-    s.maintenance.start("ADC-1");
+    s.maintenance.start(1);
     s.clock.advance(600);
     s.heartbeats.checkAll();
     assert(s.history.entries.size() == 1);
     assert(s.history.entries[0].detail == "ADC-1 offline during maintenance: no alarm");
-    s.maintenance.end("ADC-1");
+    s.maintenance.end(1);
     s.heartbeats.checkAll();                    // alarm now, but already Offline
     assert(s.notifier.raised.size() == 1);
     assert(s.history.entries.size() == 1);
@@ -208,7 +209,7 @@ static void health_offline_in_maintenance_recorded_once() {
 
 static void health_nothing_recorded_without_a_change() {
     Setup s;
-    s.heartbeats.heartbeatReceived("ADC-1");    // Online -> Online
+    s.heartbeats.heartbeatReceived(1);    // Online -> Online
     s.clock.advance(180);
     s.heartbeats.checkAll();
     s.heartbeats.checkAll();                    // Offline -> Offline
@@ -220,10 +221,10 @@ static void health_history_failure_never_blocks() {
     s.history.failWrites(true);
     s.clock.advance(180);
     s.heartbeats.checkAll();
-    assert(s.heartbeats.status("ADC-1") == AdcStatus::Offline);
+    assert(s.heartbeats.status(1) == AdcStatus::Offline);
     assert(s.notifier.raised.size() == 1);
-    s.heartbeats.heartbeatReceived("ADC-1");
-    assert(s.heartbeats.status("ADC-1") == AdcStatus::Online);
+    s.heartbeats.heartbeatReceived(1);
+    assert(s.heartbeats.status(1) == AdcStatus::Online);
 }
 
 // --- end to end with the real maintenance module ---
@@ -231,15 +232,16 @@ static void health_history_failure_never_blocks() {
 static void real_maintenance_window_suppresses_then_releases() {
     FakeClock clock{0};
     FakeAdcRegistry registry;
-    registry.add("ADC-1");
+    registry.add(1);
     FakeHistory history;
-    Maintenance maintenance{clock, registry, history};
+    FakePermissions permissions;
+    Maintenance maintenance{clock, registry, history, permissions};
     FakeAlarmNotifier notifier;
     AdcHeartbeats heartbeats{clock, maintenance, notifier, history};
-    heartbeats.monitor("ADC-1");
+    heartbeats.monitor(1);
 
     User technician{"Tara", Role::Technician};
-    assert(maintenance.schedule(technician, "ADC-1", 0, 600) == ScheduleVerdict::Created);
+    assert(maintenance.schedule(technician, 1, 0, 600) == ScheduleVerdict::Created);
 
     clock.advance(300);                         // silent, but in maintenance
     heartbeats.checkAll();
@@ -247,7 +249,7 @@ static void real_maintenance_window_suppresses_then_releases() {
 
     clock.advance(300);                         // t = 600: window over
     heartbeats.checkAll();
-    assert(heartbeats.status("ADC-1") == AdcStatus::Offline);
+    assert(heartbeats.status(1) == AdcStatus::Offline);
     assert(notifier.raised.size() == 1);
 }
 

@@ -9,9 +9,9 @@ CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -I. -MMD -MP
 
 # Directories (a module folder that does not exist yet is simply skipped)
-# TODO(team): sw_decisions/ is at the repo root on Inodh's branch; it is only
-# built here once it is moved into Subgroup_B.
-MODULE_DIRS = behaviour_hiding sw_decisions
+# Only behaviour_hiding is built. Other groups add their folder here once it
+# compiles (see INTEGRATION_PROPOSAL.md).
+MODULE_DIRS = behaviour_hiding
 TEST_DIR = tests
 OBJ_DIR = obj
 BIN_DIR = bin

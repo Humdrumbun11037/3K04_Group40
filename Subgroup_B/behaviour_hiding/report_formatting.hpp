@@ -3,7 +3,8 @@
 /*
 Hides: how reports look (FR-REP-01, FR-REP-02, NFR-USE-01): section order and
        titles, line layout, and how a time in seconds is shown as a local date
-       and time (YYYY-MM-DD HH:MM:SS), worked out by hand with no time-zone library
+       and time (YYYY-MM-DD HH:MM:SS), worked out by hand with no time-zone library;
+       ADCs are shown as "ADC-<n>"
 
 Interface
 takes: a daily report or a summary (data from report types), or a time

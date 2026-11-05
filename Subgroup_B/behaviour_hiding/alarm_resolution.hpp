@@ -10,7 +10,7 @@ Interface
 takes: new alarms, acknowledgements, resolutions with a note, requests to
        escalate overdue alarms
 sends: each alarm's current details, the escalations made, entries to history
-uses: alarm severity, clock, history
+uses: alarm severity, clock, history, permissions
 
 Invariants:
 - an alarm is Acknowledged or Resolved only if that action was stored in history
@@ -29,6 +29,7 @@ Invariants:
 #include "behaviour_hiding/interfaces/adc_id.hpp"
 #include "behaviour_hiding/interfaces/clock.hpp"
 #include "behaviour_hiding/interfaces/history.hpp"
+#include "behaviour_hiding/interfaces/permissions.hpp"
 #include "behaviour_hiding/interfaces/user.hpp"
 
 using AlarmId = int;
@@ -67,7 +68,8 @@ struct Escalation {
 class AlarmResolution {
 public:
     // { Post: no alarms }
-    AlarmResolution(const hms::behaviour::Clock& clock, hms::behaviour::History& history);
+    AlarmResolution(const hms::behaviour::Clock& clock, hms::behaviour::History& history,
+                    const hms::behaviour::Permissions& permissions);
 
     // { Pre: none }
     //   add(adc, type, destination, detail)
@@ -84,7 +86,7 @@ public:
     // { Pre: none }
     //   acknowledge(user, id)
     // { Post: the first matching row decides the result:
-    //         1. user's role may not handle alarms   => NotAuthorized
+    //         1. permissions deny AcknowledgeAlarm   => NotAuthorized
     //         2. no alarm with this id               => UnknownAlarm
     //         3. alarm is not Raised                 => NotRaised
     //         4. history write fails                 => StorageFailure
@@ -96,7 +98,7 @@ public:
     // { Pre: none }
     //   resolve(user, id, note)
     // { Post: the first matching row decides the result:
-    //         1. user's role may not handle alarms   => NotAuthorized
+    //         1. permissions deny ResolveAlarm       => NotAuthorized
     //         2. no alarm with this id               => UnknownAlarm
     //         3. alarm is already Resolved           => AlreadyResolved
     //         4. note is empty or only whitespace    => NoExplanation
@@ -128,6 +130,7 @@ private:
 
     const hms::behaviour::Clock& clock;
     hms::behaviour::History& history;
+    const hms::behaviour::Permissions& permissions;
     AlarmSeverity severityTable;
     std::map<AlarmId, AlarmInfo> alarms;
     AlarmId nextId = 1;

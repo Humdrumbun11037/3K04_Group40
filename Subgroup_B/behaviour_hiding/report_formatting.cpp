@@ -79,7 +79,7 @@ std::string ReportFormatting::formatDaily(const DailyReport& report) const {
     text += "ADCs needing attention (" + std::to_string(report.adcsNeedingAttention.size()) + ")\n";
     if (report.adcsNeedingAttention.empty()) text += "  (none)\n";
     for (const FlaggedAdc& adc : report.adcsNeedingAttention) {
-        text += "  " + adc.adc + ": " + std::to_string(adc.received) + " of "
+        text += "  " + adcName(adc.adc) + ": " + std::to_string(adc.received) + " of "
               + std::to_string(adc.expected) + " expected heartbeats\n";
     }
 
@@ -93,7 +93,8 @@ std::string ReportFormatting::formatDaily(const DailyReport& report) const {
 std::string ReportFormatting::formatSummary(const Summary& summary) const {
     const SummaryFilters& f = summary.filters;
     std::string text = "ACTIVITY SUMMARY\n";
-    text += "Filters: adc=" + orAny(f.adc) + " medication=" + orAny(f.medication)
+    text += "Filters: adc=" + (f.adc == 0 ? std::string("any") : adcName(f.adc))
+          + " medication=" + orAny(f.medication)
           + " actor=" + orAny(f.actor) + " from=" + formatTime(f.from)
           + " to=" + formatTime(f.to) + "\n";
     text += "Entries: " + std::to_string(summary.entries.size()) + "\n";

@@ -40,6 +40,20 @@ static void row5_connection_loss_is_low() {
     assert(r.severity == Severity::Low);
 }
 
+static void row6_hospital_low_stock_is_high() {
+    AlarmSeverity table;
+    SeverityResult r = table.severityOf(AlarmType::HospitalLowStock);
+    assert(r.verdict == SeverityVerdict::Ok);
+    assert(r.severity == Severity::High);
+}
+
+static void row7_inventory_discrepancy_is_high() {
+    AlarmSeverity table;
+    SeverityResult r = table.severityOf(AlarmType::InventoryDiscrepancy);
+    assert(r.verdict == SeverityVerdict::Ok);
+    assert(r.severity == Severity::High);
+}
+
 static void unknown_type_is_rejected() {
     AlarmSeverity table;
     SeverityResult r = table.severityOf(static_cast<AlarmType>(99));
@@ -52,7 +66,9 @@ int main() {
     row3_incorrect_message_format_is_critical();
     row4_inventory_low_is_high();
     row5_connection_loss_is_low();
+    row6_hospital_low_stock_is_high();
+    row7_inventory_discrepancy_is_high();
     unknown_type_is_rejected();
-    std::printf("alarm_severity_test: 6 tests passed\n");
+    std::printf("alarm_severity_test: 8 tests passed\n");
     return 0;
 }

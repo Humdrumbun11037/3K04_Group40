@@ -11,6 +11,8 @@ SeverityResult AlarmSeverity::severityOf(AlarmType type) const {
         case AlarmType::IncorrectMessageFormat: return {SeverityVerdict::Ok, Severity::Critical}; // row 3
         case AlarmType::InventoryLow:           return {SeverityVerdict::Ok, Severity::High};     // row 4
         case AlarmType::ConnectionLoss:         return {SeverityVerdict::Ok, Severity::Low};      // row 5
+        case AlarmType::HospitalLowStock:       return {SeverityVerdict::Ok, Severity::High};     // row 6
+        case AlarmType::InventoryDiscrepancy:   return {SeverityVerdict::Ok, Severity::High};     // row 7
     }
     // Not in the table: reject. The severity field is filler; Critical so that a
     // caller who forgets to check the verdict errs on the safe side.

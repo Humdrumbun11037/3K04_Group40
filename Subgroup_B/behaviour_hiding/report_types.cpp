@@ -20,11 +20,12 @@ enum class Section { InventoryChanges, Events, Alarms, AdcHealth };
 // Which daily-report section a history entry belongs in, by the start of its
 // kind. First matching row wins; anything not listed is an event.
 // "AdcHealth" (from ADC heartbeats) and "Maintenance" (from maintenance) go in
-// the ADC health section.
+// the ADC health section; "ReserveChange" (from hospital stock) is an inventory change.
 static Section sectionOf(const std::string& kind) {
     struct Rule { const char* prefix; Section section; };
     static const Rule rules[] = {
         {"Inventory",   Section::InventoryChanges},
+        {"Reserve",     Section::InventoryChanges},
         {"Alarm",       Section::Alarms},
         {"Adc",         Section::AdcHealth},
         {"Maintenance", Section::AdcHealth},
@@ -35,18 +36,8 @@ static Section sectionOf(const std::string& kind) {
     return Section::Events;
 }
 
-// Who may request an activity summary.
-static bool mayRequestSummary(Role role) {
-    switch (role) {
-        case Role::Pharmacist:    return true;
-        case Role::Administrator: return true;
-        case Role::Technician:    return false;
-    }
-    return false;   // a role not listed above
-}
-
 static bool matches(const HistoryEntry& entry, const SummaryFilters& filters) {
-    return (filters.adc.empty() || entry.adc == filters.adc)
+    return (filters.adc == 0 || entry.adc == filters.adc)
         && (filters.medication.empty() || entry.medication == filters.medication)
         && (filters.actor.empty() || entry.who == filters.actor);
 }
@@ -66,13 +57,17 @@ static std::string orAny(const std::string& value) {
     return value.empty() ? "any" : value;
 }
 
+static std::string orAny(AdcId adc) {
+    return adc == 0 ? "any" : adcName(adc);
+}
+
 // ---- The operations ----
 
 ReportTypes::ReportTypes(const Clock& clock, const HistoryReader& reader, History& history,
                          const HeartbeatCounter& heartbeats, const AdcRegistry& registry,
-                         ReportSender& sender)
+                         ReportSender& sender, const Permissions& permissions)
     : clock(clock), reader(reader), history(history), heartbeats(heartbeats),
-      registry(registry), sender(sender) {}
+      registry(registry), sender(sender), permissions(permissions) {}
 
 // Rows are checked in table order, so the first matching row wins.
 DailyVerdict ReportTypes::generateDaily(long long now) {
@@ -121,13 +116,13 @@ bool ReportTypes::buildDaily(long long now, DailyReport& report) const {
 
 // If even this write fails there is nowhere left to report it; the next call retries anyway.
 void ReportTypes::logFailure(long long now, const std::string& what) {
-    history.record({"ReportFailed", "HMS", what, now, "", ""});
+    history.record({"ReportFailed", "HMS", what, now, 0, ""});
 }
 
 // Rows are checked in table order, so the first matching row wins.
 SummaryResult ReportTypes::summary(const User& user, const SummaryFilters& filters) {
     SummaryResult result{SummaryVerdict::Summarized, {filters, {}}};
-    if (!mayRequestSummary(user.role)) {
+    if (!permissions.mayPerform(user.role, Action::GenerateSummary)) {
         result.verdict = SummaryVerdict::NotAuthorized;                                      // row 1
     } else if (filters.from > filters.to) {
         result.verdict = SummaryVerdict::InvalidRange;                                       // row 2
@@ -156,6 +151,6 @@ bool ReportTypes::audit(const User& user, const SummaryFilters& filters, Summary
         + " actor=" + orAny(filters.actor)
         + " from=" + std::to_string(filters.from)
         + " to=" + std::to_string(filters.to);
-    return history.record({"SummaryRequested", user.name, detail, clock.now(), "", ""})
+    return history.record({"SummaryRequested", user.name, detail, clock.now(), 0, ""})
            == HistoryResult::Stored;
 }

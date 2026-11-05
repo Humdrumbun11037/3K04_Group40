@@ -5,9 +5,9 @@ Hides: how medication counts are kept (one count and capacity per medication
        per ADC) and which changes are valid (FR-INV-01, FR-INV-03, FR-INV-04)
 
 Interface
-takes: items to track, withdrawals from ADC uploads, manual changes by users
-sends: counts, entries to history, low-stock alarms
-uses: low stock rule, clock, history, alarm notifier
+takes: items to track, withdrawals and deposits from ADC uploads, manual changes by users
+sends: counts, entries to history, low-stock and discrepancy alarms
+uses: low stock rule, clock, history, alarm notifier, permissions
 
 Invariants:
 - every count is 0 or more, and every capacity is more than 0
@@ -26,11 +26,12 @@ Invariants:
 #include "behaviour_hiding/interfaces/alarm_notifier.hpp"
 #include "behaviour_hiding/interfaces/clock.hpp"
 #include "behaviour_hiding/interfaces/history.hpp"
+#include "behaviour_hiding/interfaces/permissions.hpp"
 #include "behaviour_hiding/interfaces/user.hpp"
 
 enum class AddItemVerdict { Added, AlreadyExists, IncorrectValue };
 enum class InventoryVerdict { Updated, NotAuthorized, UnknownItem, IncorrectValue, NoExplanation,
-                              StorageFailure };
+                              StorageFailure, DiscrepancyRecorded };
 
 // A copy of one tracked item, for callers to read.
 struct StockItem {
@@ -44,11 +45,13 @@ class InventoryRecord {
 public:
     // { Post: no items }
     InventoryRecord(const hms::behaviour::Clock& clock, hms::behaviour::History& history,
-                    hms::behaviour::AlarmNotifier& notifier);
+                    hms::behaviour::AlarmNotifier& notifier,
+                    const hms::behaviour::Permissions& permissions);
 
     // { Pre: none }
     //   addItem(adc, medication, count, capacity)
-    // { Post: count < 0 or capacity <= 0   => IncorrectValue, nothing added
+    // { Post: adc <= 0, count < 0,
+    //         or capacity <= 0             => IncorrectValue, nothing added
     //         item already tracked         => AlreadyExists, nothing changed
     //         otherwise                    => Added (no history entry, no alarm) }
     AddItemVerdict addItem(const hms::behaviour::AdcId& adc, const std::string& medication,
@@ -58,20 +61,39 @@ public:
     //   withdraw(adc, medication, amount)
     // { Post: the first matching row decides the result:
     //         1. item not tracked                     => UnknownItem
-    //         2. amount < 0, or more than the count   => IncorrectValue
+    //         2. amount <= 0                          => IncorrectValue
     //         3. history write fails                  => StorageFailure
-    //         4. otherwise                            => Updated, count -= amount,
+    //         4. amount > count (the ADC has already
+    //            dispensed, so it is recorded)        => DiscrepancyRecorded, count = 0,
+    //                                                    recorded in history, and an
+    //                                                    InventoryDiscrepancy alarm raised
+    //                                                    with the medication as its detail
+    //         5. otherwise                            => Updated, count -= amount,
     //                                                    recorded in history
-    //         After row 4, if the count is low, an InventoryLow alarm is raised
-    //         with the medication as its detail.
+    //         After rows 4 and 5, if the count is low, an InventoryLow alarm is
+    //         raised with the medication as its detail.
     //         Rows 1-3 change nothing. }
     InventoryVerdict withdraw(const hms::behaviour::AdcId& adc, const std::string& medication,
                               int amount);
 
+    // { Pre: the upload was already validated by message processing }
+    //   deposit(adc, medication, amount)
+    // { Post: the first matching row decides the result:
+    //         1. item not tracked                     => UnknownItem
+    //         2. amount <= 0, or the new count would
+    //            not fit in an int                    => IncorrectValue
+    //         3. history write fails                  => StorageFailure
+    //         4. otherwise                            => Updated, count += amount
+    //                                                    (above capacity is allowed),
+    //                                                    recorded in history
+    //         Rows 1-3 change nothing. No alarm is raised. }
+    InventoryVerdict deposit(const hms::behaviour::AdcId& adc, const std::string& medication,
+                             int amount);
+
     // { Pre: none }
     //   manualChange(user, adc, medication, newCount, explanation)
     // { Post: the first matching row decides the result:
-    //         1. user is not Pharmacist or Administrator => NotAuthorized
+    //         1. permissions deny ManualInventoryChange  => NotAuthorized
     //         2. item not tracked                        => UnknownItem
     //         3. newCount < 0                            => IncorrectValue
     //         4. explanation empty or only whitespace    => NoExplanation
@@ -109,6 +131,7 @@ private:
     const hms::behaviour::Clock& clock;
     hms::behaviour::History& history;
     hms::behaviour::AlarmNotifier& notifier;
+    const hms::behaviour::Permissions& permissions;
     LowStockRule lowStock;
     std::map<Key, Stock> stock;
 };

@@ -11,7 +11,8 @@ Interface
 takes: the time (daily report), a user and filters (activity summary)
 sends: the daily report to the report sender; summaries to the caller;
        failures and audit entries to history
-uses: clock, history (read and write), heartbeat counter, ADC registry, report sender
+uses: clock, history (read and write), heartbeat counter, ADC registry, report sender,
+      permissions
 
 Invariants:
 - at most one daily report is sent per local day
@@ -30,6 +31,7 @@ Invariants:
 #include "behaviour_hiding/interfaces/heartbeat_counter.hpp"
 #include "behaviour_hiding/interfaces/history.hpp"
 #include "behaviour_hiding/interfaces/history_reader.hpp"
+#include "behaviour_hiding/interfaces/permissions.hpp"
 #include "behaviour_hiding/interfaces/report_sender.hpp"
 #include "behaviour_hiding/interfaces/user.hpp"
 
@@ -52,7 +54,7 @@ struct DailyReport {
 
 enum class DailyVerdict { Sent, AlreadyDone, TooEarly, GenerationFailed, SendFailed };
 
-// Empty adc, medication or actor means "any". The window is [from, to], both included.
+// adc 0, or an empty medication or actor, means "any". The window is [from, to], both included.
 struct SummaryFilters {
     hms::behaviour::AdcId adc;
     std::string medication;
@@ -78,7 +80,8 @@ public:
     // { Post: no day is done yet }
     ReportTypes(const hms::behaviour::Clock& clock, const hms::behaviour::HistoryReader& reader,
                 hms::behaviour::History& history, const hms::behaviour::HeartbeatCounter& heartbeats,
-                const hms::behaviour::AdcRegistry& registry, hms::behaviour::ReportSender& sender);
+                const hms::behaviour::AdcRegistry& registry, hms::behaviour::ReportSender& sender,
+                const hms::behaviour::Permissions& permissions);
 
     // { Pre: now is hospital local time in seconds; call it regularly (every tick) }
     //   generateDaily(now)
@@ -96,7 +99,7 @@ public:
     // { Pre: none }
     //   summary(user, filters)
     // { Post: the first matching row decides the verdict:
-    //         1. user is not Pharmacist or Administrator  => NotAuthorized
+    //         1. permissions deny GenerateSummary         => NotAuthorized
     //         2. filters.from > filters.to                => InvalidRange
     //         3. reading history fails                    => ReadFailure
     //         4. otherwise                                => Summarized: every entry in
@@ -117,5 +120,6 @@ private:
     const hms::behaviour::HeartbeatCounter& heartbeats;
     const hms::behaviour::AdcRegistry& registry;
     hms::behaviour::ReportSender& sender;
+    const hms::behaviour::Permissions& permissions;
     std::optional<long long> lastReportDay;   // the local day whose report was sent
 };

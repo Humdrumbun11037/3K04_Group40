@@ -73,5 +73,5 @@ void AdcHeartbeats::checkAdc(const AdcId& adc, Record& record, long long now) {
 // Written after the change and the alarm; a failed write is ignored on purpose,
 // so the history can never block either.
 void AdcHeartbeats::recordHealth(const AdcId& adc, const std::string& what) {
-    history.record({"AdcHealth", "HMS", adc + " " + what, clock.now(), adc, ""});
+    history.record({"AdcHealth", "HMS", adcName(adc) + " " + what, clock.now(), adc, ""});
 }

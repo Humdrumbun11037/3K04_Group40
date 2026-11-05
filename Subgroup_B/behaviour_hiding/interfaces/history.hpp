@@ -21,7 +21,7 @@ struct HistoryEntry {
     std::string who;         // user name, or "HMS" for automatic actions
     std::string detail;      // e.g. "alarm 3: replaced network cable"
     long long time;          // seconds, from the Clock
-    AdcId adc;               // the ADC it concerns; empty means none
+    AdcId adc;               // the ADC it concerns; 0 means none
     std::string medication;  // the medication it concerns; empty means none
 };
 

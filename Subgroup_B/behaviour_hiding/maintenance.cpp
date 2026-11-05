@@ -4,19 +4,25 @@
 
 using namespace hms::behaviour;
 
-Maintenance::Maintenance(const Clock& clock, const AdcRegistry& registry, History& history)
-    : clock(clock), registry(registry), history(history) {}
+// The longest a single window may last. Changing it means changing only this number.
+static const long long MAX_WINDOW_SECONDS = 12 * 60 * 60;
+
+Maintenance::Maintenance(const Clock& clock, const AdcRegistry& registry, History& history,
+                         const Permissions& permissions)
+    : clock(clock), registry(registry), history(history), permissions(permissions) {}
 
 // Rows are checked in table order, so the first matching row wins.
 // This is what makes the table disjoint.
 ScheduleVerdict Maintenance::schedule(const User& user, const AdcId& adc,
                                       long long start, long long end) {
     advanceTo(clock.now());   // so finished windows no longer count as open
-    if (user.role != Role::Technician)          return ScheduleVerdict::NotAuthorized; // row 1
+    if (!permissions.mayPerform(user.role, Action::ScheduleMaintenance))
+                                                return ScheduleVerdict::NotAuthorized; // row 1
     if (!registry.isActive(adc))                return ScheduleVerdict::UnknownAdc;    // row 2
     if (end <= start || end <= clock.now())     return ScheduleVerdict::InvalidWindow; // row 3
-    if (overlapsExisting(adc, start, end))      return ScheduleVerdict::Overlap;       // row 4
-    windows.push_back({adc, start, end, WindowState::Scheduled});                      // row 5
+    if (end - start > MAX_WINDOW_SECONDS)       return ScheduleVerdict::WindowTooLong; // row 4
+    if (overlapsExisting(adc, start, end))      return ScheduleVerdict::Overlap;       // row 5
+    windows.push_back({adc, start, end, WindowState::Scheduled});                      // row 6
     record(user.name, "scheduled", windows.back(), clock.now());
     return ScheduleVerdict::Created;
 }
@@ -24,7 +30,8 @@ ScheduleVerdict Maintenance::schedule(const User& user, const AdcId& adc,
 CancelVerdict Maintenance::cancel(const User& user, const AdcId& adc, long long start) {
     advanceTo(clock.now());   // so a window that has ended reads as Completed
     Window* window = findWindow(adc, start);
-    if (user.role != Role::Technician)          return CancelVerdict::NotAuthorized;   // row 1
+    if (!permissions.mayPerform(user.role, Action::CancelMaintenance))
+                                                return CancelVerdict::NotAuthorized;   // row 1
     if (window == nullptr)                      return CancelVerdict::UnknownWindow;   // row 2
     if (!isOpen(window->state))                 return CancelVerdict::NotCancellable;  // row 3
     window->state = next(window->state, WindowEvent::Cancel);                          // row 4
@@ -83,7 +90,7 @@ void Maintenance::advanceTo(long long now) {
 // A failed write is ignored on purpose: the history must never block a change.
 void Maintenance::record(const std::string& who, const std::string& what, const Window& window,
                          long long time) {
-    std::string detail = window.adc + " window " + what + " (start=" + std::to_string(window.start)
+    std::string detail = adcName(window.adc) + " window " + what + " (start=" + std::to_string(window.start)
                        + " end=" + std::to_string(window.end) + ")";
     history.record({"Maintenance", who, detail, time, window.adc, ""});
 }

@@ -22,17 +22,6 @@ static std::optional<long long> escalationLimit(Severity severity) {
     return std::nullopt;
 }
 
-// Who may acknowledge or resolve an alarm.
-// TODO(team): the same rule is used for acknowledging; confirm that is right.
-static bool mayHandleAlarms(Role role) {
-    switch (role) {
-        case Role::Pharmacist:    return true;
-        case Role::Technician:    return true;
-        case Role::Administrator: return true;
-    }
-    return false;   // a role not listed above
-}
-
 // Supervisor chain for escalation.
 static std::optional<Role> supervisorOf(Role role) {
     switch (role) {
@@ -89,14 +78,16 @@ static bool isOpen(AlarmState state) {
     return state != AlarmState::Resolved;
 }
 
-static std::string alarmName(AlarmId id) {
-    return "alarm " + std::to_string(id);
+// e.g. "alarm 3 (ADC-1)", or "alarm 4 (Hospital)" for a hospital-wide alarm, so
+// report lines say where the alarm was.
+static std::string alarmName(AlarmId id, const AdcId& adc) {
+    return "alarm " + std::to_string(id) + " (" + adcName(adc) + ")";
 }
 
 // ---- The operations ----
 
-AlarmResolution::AlarmResolution(const Clock& clock, History& history)
-    : clock(clock), history(history) {}
+AlarmResolution::AlarmResolution(const Clock& clock, History& history, const Permissions& permissions)
+    : clock(clock), history(history), permissions(permissions) {}
 
 // TODO(Inodh): alarm notification should call add() whenever it raises an alarm,
 // and choose the destination role (e.g. which role gets an AdcOffline alarm).
@@ -119,12 +110,13 @@ AddResult AlarmResolution::add(const AdcId& adc, AlarmType type, Role destinatio
 // Rows are checked in table order, so the first matching row wins.
 AcknowledgeVerdict AlarmResolution::acknowledge(const User& user, AlarmId id) {
     auto found = alarms.find(id);
-    if (!mayHandleAlarms(user.role))                  return AcknowledgeVerdict::NotAuthorized;  // row 1
+    if (!permissions.mayPerform(user.role, Action::AcknowledgeAlarm))
+                                                      return AcknowledgeVerdict::NotAuthorized;  // row 1
     if (found == alarms.end())                        return AcknowledgeVerdict::UnknownAlarm;   // row 2
     AlarmInfo& alarm = found->second;
     AlarmState after = next(alarm.state, AlarmEvent::Acknowledge);
     if (after == alarm.state)                         return AcknowledgeVerdict::NotRaised;      // row 3
-    if (!store("AlarmAcknowledged", user.name, alarmName(id), alarm.adc))
+    if (!store("AlarmAcknowledged", user.name, alarmName(id, alarm.adc), alarm.adc))
                                                       return AcknowledgeVerdict::StorageFailure; // row 4
     alarm.state = after;                                                                         // row 5
     return AcknowledgeVerdict::Acknowledged;
@@ -133,13 +125,14 @@ AcknowledgeVerdict AlarmResolution::acknowledge(const User& user, AlarmId id) {
 // Rows are checked in table order, so the first matching row wins.
 ResolveVerdict AlarmResolution::resolve(const User& user, AlarmId id, const std::string& note) {
     auto found = alarms.find(id);
-    if (!mayHandleAlarms(user.role))                  return ResolveVerdict::NotAuthorized;      // row 1
+    if (!permissions.mayPerform(user.role, Action::ResolveAlarm))
+                                                      return ResolveVerdict::NotAuthorized;      // row 1
     if (found == alarms.end())                        return ResolveVerdict::UnknownAlarm;       // row 2
     AlarmInfo& alarm = found->second;
     AlarmState after = next(alarm.state, AlarmEvent::Resolve);
     if (after == alarm.state)                         return ResolveVerdict::AlreadyResolved;    // row 3
     if (isBlank(note))                                return ResolveVerdict::NoExplanation;      // row 4
-    if (!store("AlarmResolved", user.name, alarmName(id) + ": " + note, alarm.adc))
+    if (!store("AlarmResolved", user.name, alarmName(id, alarm.adc) + ": " + note, alarm.adc))
                                                       return ResolveVerdict::StorageFailure;     // row 5
     alarm.state = after;                                                                         // row 6
     return ResolveVerdict::Resolved;
@@ -159,7 +152,7 @@ std::vector<Escalation> AlarmResolution::escalateDue() {
         alarm.escalated = true;
         // TODO(team): if this history write fails, the escalation still happens,
         // because getting the alarm to a supervisor matters more than the record.
-        store("AlarmEscalated", "HMS", alarmName(id), alarm.adc);
+        store("AlarmEscalated", "HMS", alarmName(id, alarm.adc), alarm.adc);
         made.push_back({id, alarm.destination, alarm.severity});
     }
     return made;

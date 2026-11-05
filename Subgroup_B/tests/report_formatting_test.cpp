@@ -69,11 +69,11 @@ static void daily_empty_report() {
 static void daily_report_with_contents() {
     ReportFormatting f;
     DailyReport r{SIX_AM - 86400, SIX_AM, {}, {}, {}, {}, {}};
-    r.adcsNeedingAttention.push_back({"ADC-2", 10, 1440});
+    r.adcsNeedingAttention.push_back({2, 10, 1440});
     r.inventoryChanges.push_back({"InventoryWithdrawal", "ADC-1", "withdrew 5 Morphine: 40 -> 35",
-                                  MIDNIGHT + 3600, "ADC-1", "Morphine"});
-    r.alarms.push_back({"AlarmResolved", "Tara", "alarm 1: replaced cable", MIDNIGHT + 7200, "ADC-1", ""});
-    r.alarms.push_back({"AlarmEscalated", "HMS", "alarm 2", MIDNIGHT + 7260, "ADC-2", ""});
+                                  MIDNIGHT + 3600, 1, "Morphine"});
+    r.alarms.push_back({"AlarmResolved", "Tara", "alarm 1: replaced cable", MIDNIGHT + 7200, 1, ""});
+    r.alarms.push_back({"AlarmEscalated", "HMS", "alarm 2", MIDNIGHT + 7260, 2, ""});
     assert(f.formatDaily(r) ==
         "DAILY REPORT\n"
         "Window: 2026-11-01 06:00:00 to 2026-11-02 06:00:00\n"
@@ -95,7 +95,7 @@ static void daily_report_with_contents() {
 
 static void summary_empty() {
     ReportFormatting f;
-    Summary s{{"", "", "", MIDNIGHT, SIX_AM}, {}};
+    Summary s{{0, "", "", MIDNIGHT, SIX_AM}, {}};
     assert(f.formatSummary(s) ==
         "ACTIVITY SUMMARY\n"
         "Filters: adc=any medication=any actor=any from=2026-11-02 00:00:00 to=2026-11-02 06:00:00\n"
@@ -104,11 +104,11 @@ static void summary_empty() {
 
 static void summary_with_entries() {
     ReportFormatting f;
-    Summary s{{"ADC-1", "Morphine", "Priya", MIDNIGHT, SIX_AM}, {}};
+    Summary s{{1, "Morphine", "Priya", MIDNIGHT, SIX_AM}, {}};
     s.entries.push_back({"InventoryManualChange", "Priya", "Morphine: 35 -> 50: restocked",
-                         MIDNIGHT + 300, "ADC-1", "Morphine"});
+                         MIDNIGHT + 300, 1, "Morphine"});
     s.entries.push_back({"InventoryManualChange", "Priya", "Morphine: 50 -> 48: recount",
-                         MIDNIGHT + 330, "ADC-1", "Morphine"});
+                         MIDNIGHT + 330, 1, "Morphine"});
     assert(f.formatSummary(s) ==
         "ACTIVITY SUMMARY\n"
         "Filters: adc=ADC-1 medication=Morphine actor=Priya from=2026-11-02 00:00:00 to=2026-11-02 06:00:00\n"

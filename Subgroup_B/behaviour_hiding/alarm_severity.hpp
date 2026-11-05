@@ -15,7 +15,9 @@ enum class AlarmType {
     AdcOffline,
     IncorrectMessageFormat,
     InventoryLow,
-    ConnectionLoss
+    ConnectionLoss,
+    HospitalLowStock,      // one medication low across the whole hospital (raised for ADC id 0)
+    InventoryDiscrepancy   // an ADC withdrew more than the HMS count
 };
 
 // Ordered lowest to highest, so severities can be compared with < and >.

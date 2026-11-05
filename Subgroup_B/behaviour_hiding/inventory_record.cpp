@@ -3,18 +3,9 @@
 #include "behaviour_hiding/inventory_record.hpp"
 
 #include <cctype>
+#include <climits>
 
 using namespace hms::behaviour;
-
-// Who may change a count by hand.
-static bool mayChangeInventory(Role role) {
-    switch (role) {
-        case Role::Pharmacist:    return true;
-        case Role::Administrator: return true;
-        case Role::Technician:    return false;
-    }
-    return false;   // a role not listed above
-}
 
 // An explanation that is empty or only whitespace is not an explanation.
 static bool isBlank(const std::string& text) {
@@ -28,12 +19,13 @@ static std::string change(const std::string& medication, int before, int after) 
     return medication + ": " + std::to_string(before) + " -> " + std::to_string(after);
 }
 
-InventoryRecord::InventoryRecord(const Clock& clock, History& history, AlarmNotifier& notifier)
-    : clock(clock), history(history), notifier(notifier) {}
+InventoryRecord::InventoryRecord(const Clock& clock, History& history, AlarmNotifier& notifier,
+                                 const Permissions& permissions)
+    : clock(clock), history(history), notifier(notifier), permissions(permissions) {}
 
 AddItemVerdict InventoryRecord::addItem(const AdcId& adc, const std::string& medication,
                                         int count, int capacity) {
-    if (count < 0 || capacity <= 0)                   return AddItemVerdict::IncorrectValue;
+    if (adc <= 0 || count < 0 || capacity <= 0)       return AddItemVerdict::IncorrectValue;
     Key key{adc, medication};
     if (stock.count(key) > 0)                          return AddItemVerdict::AlreadyExists;
     stock[key] = {count, capacity};
@@ -47,13 +39,36 @@ InventoryVerdict InventoryRecord::withdraw(const AdcId& adc, const std::string& 
     auto found = stock.find(key);
     if (found == stock.end())                          return InventoryVerdict::UnknownItem;    // row 1
     Stock& item = found->second;
-    if (amount < 0 || amount > item.count)             return InventoryVerdict::IncorrectValue; // row 2
-    int after = item.count - amount;
-    if (!store("InventoryWithdrawal", adc, "withdrew " + std::to_string(amount) + " " +
+    if (amount <= 0)                                   return InventoryVerdict::IncorrectValue; // row 2
+    bool discrepancy = amount > item.count;
+    int after = discrepancy ? 0 : item.count - amount;
+    std::string detail = "withdrew " + std::to_string(amount) + " " + change(medication, item.count, after);
+    if (discrepancy) detail += " (discrepancy: HMS count was " + std::to_string(item.count) + ")";
+    if (!store(discrepancy ? "InventoryDiscrepancy" : "InventoryWithdrawal", adcName(adc), detail, key))
+                                                       return InventoryVerdict::StorageFailure; // row 3
+    item.count = after;
+    if (discrepancy) {                                                                          // row 4
+        notifier.raise(adc, AlarmType::InventoryDiscrepancy, medication);
+        raiseIfLow(key, item);
+        return InventoryVerdict::DiscrepancyRecorded;
+    }
+    raiseIfLow(key, item);                                                                      // row 5
+    return InventoryVerdict::Updated;
+}
+
+// Rows are checked in table order, so the first matching row wins.
+InventoryVerdict InventoryRecord::deposit(const AdcId& adc, const std::string& medication,
+                                          int amount) {
+    Key key{adc, medication};
+    auto found = stock.find(key);
+    if (found == stock.end())                          return InventoryVerdict::UnknownItem;    // row 1
+    Stock& item = found->second;
+    if (amount <= 0 || amount > INT_MAX - item.count)  return InventoryVerdict::IncorrectValue; // row 2
+    int after = item.count + amount;
+    if (!store("InventoryDeposit", adcName(adc), "deposited " + std::to_string(amount) + " " +
                change(medication, item.count, after), key))
                                                        return InventoryVerdict::StorageFailure; // row 3
     item.count = after;                                                                         // row 4
-    raiseIfLow(key, item);
     return InventoryVerdict::Updated;
 }
 
@@ -63,7 +78,8 @@ InventoryVerdict InventoryRecord::manualChange(const User& user, const AdcId& ad
                                                const std::string& explanation) {
     Key key{adc, medication};
     auto found = stock.find(key);
-    if (!mayChangeInventory(user.role))                return InventoryVerdict::NotAuthorized;  // row 1
+    if (!permissions.mayPerform(user.role, Action::ManualInventoryChange))
+                                                       return InventoryVerdict::NotAuthorized;  // row 1
     if (found == stock.end())                          return InventoryVerdict::UnknownItem;    // row 2
     Stock& item = found->second;
     if (newCount < 0)                                  return InventoryVerdict::IncorrectValue; // row 3

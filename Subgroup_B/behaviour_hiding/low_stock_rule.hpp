@@ -2,11 +2,11 @@
 
 /*
 Hides: what counts as low stock (FR-INV-02): the 25% threshold, that it is
-       compared against the capacity of one medication in one ADC, and which
-       side exactly 25% falls on (not low)
+       compared against a capacity, and which side exactly 25% falls on (not low)
 
 Interface
-takes: the count and capacity of one medication in one ADC
+takes: the count and capacity of one medication, in one ADC (inventory record)
+       or across the hospital (hospital stock)
 sends: Low or NotLow, or a rejection for impossible inputs
 uses: nothing
 */
@@ -16,7 +16,7 @@ enum class LowStockVerdict { NotLow, Low, InvalidCapacity, InvalidCount };
 
 class LowStockRule {
 public:
-    // { Pre: none (count and capacity belong to one medication in one ADC) }
+    // { Pre: none (count and capacity belong to one medication) }
     //   check(count, capacity)
     // { Post: the first matching row decides the result:
     //         1. capacity <= 0                   => InvalidCapacity

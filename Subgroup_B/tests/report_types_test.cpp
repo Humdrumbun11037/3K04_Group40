@@ -7,6 +7,7 @@
 #include "behaviour_hiding/report_types.hpp"
 #include "tests/fakes/fake_adc_registry.hpp"
 #include "tests/fakes/fake_clock.hpp"
+#include "tests/fakes/fake_permissions.hpp"
 #include "tests/fakes/fake_heartbeat_counter.hpp"
 #include "tests/fakes/fake_history.hpp"
 #include "tests/fakes/fake_report_sender.hpp"
@@ -27,10 +28,11 @@ struct Setup {
     FakeHeartbeatCounter counter;
     FakeAdcRegistry registry;
     FakeReportSender sender;
-    ReportTypes reports{clock, history, history, counter, registry, sender};
+    FakePermissions permissions;
+    ReportTypes reports{clock, history, history, counter, registry, sender, permissions};
 
     void write(const std::string& kind, const std::string& who, long long time,
-               const AdcId& adc = "", const std::string& medication = "") {
+               AdcId adc = 0, const std::string& medication = "") {
         history.record({kind, who, kind + " detail", time, adc, medication});
     }
     // Every heartbeat an ADC should send in the 24 hours before t.
@@ -77,7 +79,7 @@ static void daily_row3_history_read_failure_logged_then_retried() {
 
 static void daily_row3_heartbeat_count_failure() {
     Setup s;
-    s.registry.add("ADC-1");
+    s.registry.add(1);
     s.counter.failCounts(true);
     assert(s.reports.generateDaily(SIX_AM) == DailyVerdict::GenerationFailed);
     assert(s.sender.sent.empty());
@@ -117,12 +119,21 @@ static void daily_row5_empty_window_gives_empty_sections() {
            && r.alarms.empty() && r.adcHealth.empty());
 }
 
+static void daily_row5_reserve_change_is_an_inventory_change() {
+    Setup s;
+    s.write("ReserveChange", "Priya", SIX_AM - 100, 0, "Insulin");
+    s.reports.generateDaily(SIX_AM);
+    const DailyReport& r = s.sender.sent[0];
+    assert(r.inventoryChanges.size() == 1 && r.inventoryChanges[0].kind == "ReserveChange");
+    assert(r.events.empty());
+}
+
 static void daily_row5_entries_sorted_into_sections() {
     Setup s;
     s.write("InventoryWithdrawal", "ADC-1", SIX_AM - 100);
     s.write("AlarmResolved", "Tara", SIX_AM - 90);
-    s.write("AdcHealth", "HMS", SIX_AM - 80, "ADC-1");
-    s.write("Maintenance", "Tara", SIX_AM - 70, "ADC-2");
+    s.write("AdcHealth", "HMS", SIX_AM - 80, 1);
+    s.write("Maintenance", "Tara", SIX_AM - 70, 2);
     s.write("SummaryRequested", "Alex", SIX_AM - 60);
     s.reports.generateDaily(SIX_AM);
     const DailyReport& r = s.sender.sent[0];
@@ -145,22 +156,22 @@ static void daily_row5_only_entries_inside_window() {
 
 static void daily_row5_flags_adc_with_too_few_heartbeats() {
     Setup s;
-    s.registry.add("ADC-1");
-    s.registry.add("ADC-2");
-    s.healthyHeartbeats("ADC-1", SIX_AM);
-    for (int i = 0; i < 10; i++) s.counter.record("ADC-2", SIX_AM - 600 + i * 60);
+    s.registry.add(1);
+    s.registry.add(2);
+    s.healthyHeartbeats(1, SIX_AM);
+    for (int i = 0; i < 10; i++) s.counter.record(2, SIX_AM - 600 + i * 60);
     s.reports.generateDaily(SIX_AM);
     const DailyReport& r = s.sender.sent[0];
     assert(r.adcsNeedingAttention.size() == 1);
-    assert(r.adcsNeedingAttention[0].adc == "ADC-2");
+    assert(r.adcsNeedingAttention[0].adc == 2);
     assert(r.adcsNeedingAttention[0].received == 10);
     assert(r.adcsNeedingAttention[0].expected == 1440);
 }
 
 static void daily_decommissioned_adc_not_flagged() {
     Setup s;
-    s.registry.add("ADC-1");
-    s.registry.decommission("ADC-1");
+    s.registry.add(1);
+    s.registry.decommission(1);
     s.reports.generateDaily(SIX_AM);
     assert(s.sender.sent[0].adcsNeedingAttention.empty());
 }
@@ -176,7 +187,7 @@ static void invariant_daily_generation_is_read_only() {
 
 static void summary_row1_technician_not_authorized() {
     Setup s;
-    SummaryResult r = s.reports.summary(technician, {"", "", "", 0, SIX_AM});
+    SummaryResult r = s.reports.summary(technician, {0, "", "", 0, SIX_AM});
     assert(r.verdict == SummaryVerdict::NotAuthorized);
     assert(r.summary.entries.empty());
     assert(s.history.entries.size() == 1);
@@ -187,7 +198,7 @@ static void summary_row1_technician_not_authorized() {
 
 static void summary_row2_from_after_to_invalid_range() {
     Setup s;
-    SummaryResult r = s.reports.summary(pharmacist, {"", "", "", 200, 100});
+    SummaryResult r = s.reports.summary(pharmacist, {0, "", "", 200, 100});
     assert(r.verdict == SummaryVerdict::InvalidRange);
     assert(s.history.entries.size() == 1);
     assert(s.history.entries[0].detail.rfind("InvalidRange ", 0) == 0);
@@ -196,15 +207,15 @@ static void summary_row2_from_after_to_invalid_range() {
 static void summary_row3_read_failure() {
     Setup s;
     s.history.failReads(true);
-    SummaryResult r = s.reports.summary(pharmacist, {"", "", "", 0, SIX_AM});
+    SummaryResult r = s.reports.summary(pharmacist, {0, "", "", 0, SIX_AM});
     assert(r.verdict == SummaryVerdict::ReadFailure);
     assert(s.history.entries.size() == 1);   // still audited
 }
 
 static void summary_row4_no_matches_gives_empty_summary() {
     Setup s;
-    s.write("AlarmResolved", "Tara", 100, "ADC-1");
-    SummaryResult r = s.reports.summary(pharmacist, {"ADC-2", "", "", 0, 1000});
+    s.write("AlarmResolved", "Tara", 100, 1);
+    SummaryResult r = s.reports.summary(pharmacist, {2, "", "", 0, 1000});
     assert(r.verdict == SummaryVerdict::Summarized);
     assert(r.summary.entries.empty());
     assert(s.history.entries.size() == 2);   // the entry plus the audit
@@ -212,14 +223,14 @@ static void summary_row4_no_matches_gives_empty_summary() {
 
 static void summary_row4_matches_each_filter() {
     Setup s;
-    s.write("InventoryWithdrawal", "ADC-1", 100, "ADC-1", "Morphine");
-    s.write("InventoryWithdrawal", "ADC-2", 110, "ADC-2", "Morphine");
-    s.write("InventoryManualChange", "Priya", 120, "ADC-1", "Insulin");
-    s.write("AlarmResolved", "Tara", 130, "ADC-1");
-    assert(s.reports.summary(pharmacist, {"ADC-1", "", "", 0, 1000}).summary.entries.size() == 3);
-    assert(s.reports.summary(pharmacist, {"", "Morphine", "", 0, 1000}).summary.entries.size() == 2);
-    assert(s.reports.summary(pharmacist, {"", "", "Tara", 0, 1000}).summary.entries.size() == 1);
-    SummaryResult all = s.reports.summary(administrator, {"ADC-1", "Insulin", "Priya", 0, 1000});
+    s.write("InventoryWithdrawal", "ADC-1", 100, 1, "Morphine");
+    s.write("InventoryWithdrawal", "ADC-2", 110, 2, "Morphine");
+    s.write("InventoryManualChange", "Priya", 120, 1, "Insulin");
+    s.write("AlarmResolved", "Tara", 130, 1);
+    assert(s.reports.summary(pharmacist, {1, "", "", 0, 1000}).summary.entries.size() == 3);
+    assert(s.reports.summary(pharmacist, {0, "Morphine", "", 0, 1000}).summary.entries.size() == 2);
+    assert(s.reports.summary(pharmacist, {0, "", "Tara", 0, 1000}).summary.entries.size() == 1);
+    SummaryResult all = s.reports.summary(administrator, {1, "Insulin", "Priya", 0, 1000});
     assert(all.verdict == SummaryVerdict::Summarized);
     assert(all.summary.entries.size() == 1);
     assert(all.summary.entries[0].kind == "InventoryManualChange");
@@ -232,15 +243,15 @@ static void summary_row4_window_includes_both_ends() {
     s.write("AlarmResolved", "Tara", 100);
     s.write("AlarmResolved", "Tara", 200);
     s.write("AlarmResolved", "Tara", 201);
-    assert(s.reports.summary(pharmacist, {"", "", "", 100, 200}).summary.entries.size() == 2);
-    assert(s.reports.summary(pharmacist, {"", "", "", 100, 100}).summary.entries.size() == 1);
+    assert(s.reports.summary(pharmacist, {0, "", "", 100, 200}).summary.entries.size() == 2);
+    assert(s.reports.summary(pharmacist, {0, "", "", 100, 100}).summary.entries.size() == 1);
 }
 
 static void summary_audit_failure_returns_no_summary() {
     Setup s;
     s.write("AlarmResolved", "Tara", 100);
     s.history.failWrites(true);
-    SummaryResult r = s.reports.summary(pharmacist, {"", "", "", 0, 1000});
+    SummaryResult r = s.reports.summary(pharmacist, {0, "", "", 0, 1000});
     assert(r.verdict == SummaryVerdict::AuditFailure);
     assert(r.summary.entries.empty());
 }
@@ -248,24 +259,32 @@ static void summary_audit_failure_returns_no_summary() {
 static void summary_audit_failure_on_rejected_request() {
     Setup s;
     s.history.failWrites(true);
-    assert(s.reports.summary(technician, {"", "", "", 0, 1000}).verdict == SummaryVerdict::AuditFailure);
+    assert(s.reports.summary(technician, {0, "", "", 0, 1000}).verdict == SummaryVerdict::AuditFailure);
 }
 
 static void invariant_exactly_one_audit_per_request() {
     Setup s;
-    s.reports.summary(technician, {"", "", "", 0, 1000});
-    s.reports.summary(pharmacist, {"", "", "", 1000, 0});
-    s.reports.summary(pharmacist, {"", "", "", 0, 1000});
+    s.reports.summary(technician, {0, "", "", 0, 1000});
+    s.reports.summary(pharmacist, {0, "", "", 1000, 0});
+    s.reports.summary(pharmacist, {0, "", "", 0, 1000});
     assert(s.history.entries.size() == 3);
     for (const HistoryEntry& e : s.history.entries) assert(e.kind == "SummaryRequested");
 }
 
 static void audit_entry_records_filters() {
     Setup s;
-    s.reports.summary(pharmacist, {"ADC-1", "", "Tara", 5, 10});
+    s.reports.summary(pharmacist, {1, "", "Tara", 5, 10});
     assert(s.history.entries[0].detail
            == "Summarized adc=ADC-1 medication=any actor=Tara from=5 to=10");
     assert(s.history.entries[0].time == SIX_AM);
+}
+
+// --- added: the permission table decides summary row 1 ---
+
+static void summary_row1_follows_the_permission_table() {
+    Setup s;
+    s.permissions.set(Role::Technician, Action::GenerateSummary, true);
+    assert(s.reports.summary(technician, {0, "", "", 0, 1000}).verdict == SummaryVerdict::Summarized);
 }
 
 int main() {
@@ -279,6 +298,7 @@ int main() {
     daily_row5_next_day_sends_again();
     daily_row5_empty_window_gives_empty_sections();
     daily_row5_entries_sorted_into_sections();
+    daily_row5_reserve_change_is_an_inventory_change();
     daily_row5_only_entries_inside_window();
     daily_row5_flags_adc_with_too_few_heartbeats();
     daily_decommissioned_adc_not_flagged();
@@ -293,6 +313,7 @@ int main() {
     summary_audit_failure_on_rejected_request();
     invariant_exactly_one_audit_per_request();
     audit_entry_records_filters();
-    std::printf("report_types_test: 24 tests passed\n");
+    summary_row1_follows_the_permission_table();
+    std::printf("report_types_test: 26 tests passed\n");
     return 0;
 }
