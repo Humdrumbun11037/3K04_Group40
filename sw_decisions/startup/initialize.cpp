@@ -48,7 +48,8 @@ HMSystem::HMSystem(const ExternalModules& ext,
       router(encryption, stripper, adcs, scanner, ext.heartbeats, alarms, ext.inventory, ext.clock),
       authorization(users, settings, reports, ext.clock),
       maintenance(ext.clock, reports),
-      inventoryChanges(ext.inventory, adcs, ext.dashboard, reports, ext.clock) {}
+      inventoryChanges(ext.inventory, adcs, ext.dashboard, reports, ext.clock),
+      daily(ext.clock, ext.storage) {}
 
 bool HMSystem::createInitialAdministrator(const std::string& userId, const std::string& password) {
     if (!users.usersWithRole(UserRole::Administrator).empty()) return false;
@@ -59,4 +60,5 @@ void HMSystem::tick() {
     router.pollLink(external.comms);
     alarms.checkUnresolved();
     maintenance.tick();
+    daily.tick();
 }

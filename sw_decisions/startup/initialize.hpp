@@ -29,6 +29,7 @@ Sends: a fully connected system, ready for use by the user dashboard
 #include "../user_information/user_registry.hpp"
 #include "../user_information/user_settings.hpp"
 #include "authorization.hpp"
+#include "daily_tasks.hpp"
 
 // The modules outside sw_decisions that the HMS is built on.
 struct ExternalModules {
@@ -59,7 +60,8 @@ public:
     bool createInitialAdministrator(const std::string& userId, const std::string& password);
 
     // One pass of the main loop: route waiting ADC messages, escalate
-    // unresolved alarms, and start / end maintenance windows.
+    // unresolved alarms, start / end maintenance windows, and run the
+    // once-a-day tasks when the day changes.
     void tick();
 
     // Members are declared (and therefore built) in dependency order.
@@ -76,6 +78,7 @@ public:
     Authorization authorization;
     MaintenanceScheduler maintenance;
     ManualInventoryChanges inventoryChanges;
+    DailyTasks daily;
 
 private:
     // Loads the user settings and checks them before anything else is built.

@@ -332,6 +332,20 @@ EncryptionManager::EncryptionManager(std::unique_ptr<IEncryptionStrategy> strate
     requireKeySize(masterKey_);
 }
 
+std::vector<uint8_t> EncryptionManager::encryptData(
+    const std::vector<uint8_t>& plaintext
+)
+{
+    return strategy_->encrypt(plaintext, masterKey_);
+}
+ 
+std::vector<uint8_t> EncryptionManager::decryptData(
+    const std::vector<uint8_t>& ciphertext
+)
+{
+    return strategy_->decrypt(ciphertext, masterKey_);
+}
+
 EncryptionManager::~EncryptionManager() {
     // Wipe the key so it does not linger in freed memory.
     volatile uint8_t* p = masterKey_.data();

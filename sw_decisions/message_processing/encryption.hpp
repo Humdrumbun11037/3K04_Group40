@@ -110,4 +110,12 @@ public:
      * @brief A new random key of kKeySize bytes.
      */
     static std::vector<uint8_t> generateKey();
+
+    std::vector<uint8_t> encryptData(
+        const std::vector<uint8_t>& plaintext
+    );
+ 
+    std::vector<uint8_t> decryptData(
+        const std::vector<uint8_t>& ciphertext
+    );
 };

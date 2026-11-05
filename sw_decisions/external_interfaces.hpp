@@ -98,6 +98,9 @@ public:
     virtual void append(const Event& event) = 0;
     // All stored events with from <= timestamp <= to, oldest first.
     virtual std::vector<Event> search(const std::string& from, const std::string& to) const = 0;
+    // Moves events more than 13 months older than `now` out of the live
+    // audit trail into the archive. Called once per day by startup/daily_tasks.
+    virtual void archiveOlderThan13Months(const std::string& now) = 0;
 };
 
 // ---------------------------------------------------------------- alarms
