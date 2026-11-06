@@ -34,6 +34,8 @@ Invariants:
 enum class AdcStatus { Online, Offline, NotMonitored };
 enum class HeartbeatVerdict { Accepted, NotMonitored };
 
+// Watches each ADC's regular "I'm still here" messages and notices when one goes
+// quiet, so staff learn quickly that an ADC has lost contact with the HMS.
 class AdcHeartbeats {
 public:
     // { Post: no ADCs are monitored }
@@ -42,17 +44,21 @@ public:
                   hms::behaviour::AlarmNotifier& notifier,
                   hms::behaviour::History& history);
 
+    // Starts watching an ADC, for example when it is registered.
     // { Pre: adc is registered (checked by the caller, e.g. startup or the ADC registry) }
     //   monitor(adc)
     // { Post: adc is monitored, Online, and counts as heard from now;
     //         already monitored => no change }
     void monitor(const hms::behaviour::AdcId& adc);
 
+    // Stops watching an ADC, for example when it is decommissioned, so it can never
+    // cause a false alarm.
     // { Pre: none }
     //   stopMonitoring(adc)
     // { Post: adc is not monitored and will never raise an alarm here }
     void stopMonitoring(const hms::behaviour::AdcId& adc);
 
+    // Called for every heartbeat; each one proves the ADC is still talking to us.
     // { Pre: the message was already validated by message processing }
     //   heartbeatReceived(adc)
     // { Post: row 1: adc monitored => missed count reset, status Online, Accepted;
@@ -60,6 +66,8 @@ public:
     //         adc not monitored    => no change, NotMonitored }
     HeartbeatVerdict heartbeatReceived(const hms::behaviour::AdcId& adc);
 
+    // Run on every tick: finds ADCs that have gone silent and raises the alarm,
+    // unless the ADC is in planned maintenance.
     // { Pre: none }
     //   checkAll()
     // { Post: for every monitored ADC, the offline table in the .cpp is applied
@@ -68,6 +76,7 @@ public:
     //         each change to Offline writes a history entry }
     void checkAll();
 
+    // What the dashboard shows for one ADC: Online, Offline or not monitored.
     // { Pre: none }
     //   status(adc)
     // { Post: returns Online or Offline, or NotMonitored if adc is not monitored }

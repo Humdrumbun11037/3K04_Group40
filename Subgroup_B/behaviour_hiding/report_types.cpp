@@ -36,6 +36,8 @@ static Section sectionOf(const std::string& kind) {
     return Section::Events;
 }
 
+// Whether one history entry passes every filter the user gave; an empty filter
+// lets everything through.
 static bool matches(const HistoryEntry& entry, const SummaryFilters& filters) {
     return (filters.adc == 0 || entry.adc == filters.adc)
         && (filters.medication.empty() || entry.medication == filters.medication)
@@ -144,6 +146,7 @@ SummaryResult ReportTypes::summary(const User& user, const SummaryFilters& filte
     return result;
 }
 
+// Writes the one audit entry that every summary request gets, whatever its outcome.
 bool ReportTypes::audit(const User& user, const SummaryFilters& filters, SummaryVerdict verdict) {
     std::string detail = verdictName(verdict)
         + " adc=" + orAny(filters.adc)

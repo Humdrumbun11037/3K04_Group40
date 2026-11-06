@@ -1,0 +1,12 @@
+/* Additions for the integrated page; the rest comes from /common/style.css. */
+.who { font-size: 0.9rem; }
+.card.narrow { max-width: 26rem; }
+.tag.real { background: var(--ok-bg); color: var(--ok-ink); border-color: #9bd3ab; font-weight: 700; }
+.tag.sim { background: #fff4d6; color: #6b4a00; border-color: #e6c46a; font-weight: 700; }
+.trace { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 0.8rem; margin: 0.5rem 0 1rem; }
+.trace dt { font-weight: 600; color: var(--muted); }
+.trace dd { margin: 0; font-family: Consolas, "Courier New", monospace; word-break: break-all; }
+.trace dd.removed { color: var(--bad-ink); }
+.card.wide label.grow { flex: 1 1 24rem; }
+.card.wide label.grow input { width: 100%; }
+code { font-family: Consolas, "Courier New", monospace; background: var(--bg); padding: 0 0.2rem; border-radius: 3px; }

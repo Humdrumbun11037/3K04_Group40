@@ -15,6 +15,7 @@ static bool isBlank(const std::string& text) {
     return true;
 }
 
+// Builds the "Morphine: 40 -> 30" part of a history entry.
 static std::string change(const std::string& medication, int before, int after) {
     return medication + ": " + std::to_string(before) + " -> " + std::to_string(after);
 }
@@ -23,6 +24,7 @@ InventoryRecord::InventoryRecord(const Clock& clock, History& history, AlarmNoti
                                  const Permissions& permissions)
     : clock(clock), history(history), notifier(notifier), permissions(permissions) {}
 
+// Set-up only: no history entry and no alarm, because nothing has happened yet.
 AddItemVerdict InventoryRecord::addItem(const AdcId& adc, const std::string& medication,
                                         int count, int capacity) {
     if (adc <= 0 || count < 0 || capacity <= 0)       return AddItemVerdict::IncorrectValue;
@@ -106,6 +108,8 @@ std::vector<StockItem> InventoryRecord::items() const {
     return all;
 }
 
+// Writes one inventory change to history and says whether it was saved; a count
+// only changes if it was.
 bool InventoryRecord::store(const std::string& kind, const std::string& who,
                             const std::string& detail, const Key& key) {
     return history.record({kind, who, detail, clock.now(), key.first, key.second})

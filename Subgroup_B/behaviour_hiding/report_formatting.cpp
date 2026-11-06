@@ -63,6 +63,8 @@ static std::string entryLine(const ReportFormatting& f, const HistoryEntry& e) {
     return f.formatTime(e.time) + " " + e.who + " " + e.kind + " " + e.detail;
 }
 
+// One titled section. An empty one says "(none)", so readers can tell it is
+// empty rather than missing.
 static std::string section(const ReportFormatting& f, const std::string& title,
                            const std::vector<HistoryEntry>& entries) {
     std::string text = title + " (" + std::to_string(entries.size()) + ")\n";
@@ -71,6 +73,8 @@ static std::string section(const ReportFormatting& f, const std::string& title,
     return text;
 }
 
+// Header and window first, then the sections in a fixed order, so readers always
+// find things in the same place.
 std::string ReportFormatting::formatDaily(const DailyReport& report) const {
     std::string text = "DAILY REPORT\n";
     text += "Window: " + formatTime(report.from) + " to " + formatTime(report.to) + "\n";
@@ -90,6 +94,7 @@ std::string ReportFormatting::formatDaily(const DailyReport& report) const {
     return text;
 }
 
+// Header, the filters that were used, the entry count, then one line per entry.
 std::string ReportFormatting::formatSummary(const Summary& summary) const {
     const SummaryFilters& f = summary.filters;
     std::string text = "ACTIVITY SUMMARY\n";

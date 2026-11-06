@@ -12,6 +12,8 @@ AdcHeartbeats::AdcHeartbeats(const Clock& clock, MaintenanceStatus& maintenance,
                              AlarmNotifier& notifier, History& history)
     : clock(clock), maintenance(maintenance), notifier(notifier), history(history) {}
 
+// Starting to watch counts as hearing from the ADC now, so a newly added ADC is
+// not reported offline straight away.
 void AdcHeartbeats::monitor(const AdcId& adc) {
     if (records.count(adc) > 0) return;
     records[adc] = {clock.now(), AdcStatus::Online, false};
@@ -31,6 +33,7 @@ HeartbeatVerdict AdcHeartbeats::heartbeatReceived(const AdcId& adc) {
     return HeartbeatVerdict::Accepted;
 }
 
+// Checks every watched ADC against the offline rule below.
 void AdcHeartbeats::checkAll() {
     long long now = clock.now();
     for (auto& [adc, record] : records) {

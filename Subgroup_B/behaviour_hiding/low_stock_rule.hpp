@@ -14,8 +14,12 @@ uses: nothing
 
 enum class LowStockVerdict { NotLow, Low, InvalidCapacity, InvalidCount };
 
+// Decides whether a medication is running low. Inventory record and hospital
+// stock both ask it, so the 25% rule lives in exactly one place.
 class LowStockRule {
 public:
+    // Answers "is this count low for this capacity?" so the pharmacy hears about it
+    // before an ADC runs out.
     // { Pre: none (count and capacity belong to one medication) }
     //   check(count, capacity)
     // { Post: the first matching row decides the result:

@@ -8,7 +8,11 @@ we agree it. Every point is open for discussion.
 ## Where things stand
 
 - `Subgroup_B/behaviour_hiding/` builds and passes its tests (`make test` in
-  `Subgroup_B`). Its makefile builds **only** `behaviour_hiding` for now.
+  `Subgroup_B`).
+- The makefile now also builds Matthew's `Subgroup_B/hardware_hiding/` (plus
+  Subgroup A's `HW1_Transceiver.cpp`, which his comms link uses) with
+  `mingw32-make all`. The tests and the demo still link only Andrew's
+  `behaviour_hiding` code.
 - `sw_decisions/` is still at the repo root and has not been moved or edited.
   Its headers are now pushed, and its code is in good shape:
   - **All 13 `.cpp` files compile on their own.** Each was checked with
@@ -29,8 +33,10 @@ we agree it. Every point is open for discussion.
   `Clock` and `AlarmNotifier` exist on both sides too, but don't clash, because
   Andrew's are inside `namespace hms::behaviour`. Putting Inodh's code in
   `namespace hms::sw` fixes both clashes (see section 2).
-- Once the folder is moved into `Subgroup_B`, adding `sw_decisions` to
-  `MODULE_DIRS` in the makefile is a one-word change.
+- `sw_decisions` is not built by the makefile yet, although its include path
+  (`-I../sw_decisions`) is already there for Matthew's code. Once the folder
+  is moved into `Subgroup_B`, it needs one more source list in the makefile,
+  like the existing `BEHAVIOUR_SOURCES` and `HARDWARE_SOURCES`.
 
 ## 1. Who owns what
 

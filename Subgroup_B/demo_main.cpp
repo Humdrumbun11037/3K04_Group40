@@ -103,6 +103,8 @@ private:
 
 // ---- The demo world: every module and fake, wired together ----
 
+// Everything the demo needs in one place: the real behaviour modules wired to
+// fakes. Starting a scenario builds a fresh World, which is how the demo restarts.
 struct World {
     FakeClock clock{START_TIME};
     FakeHistory history;
@@ -158,6 +160,7 @@ struct World {
     std::string now() const { return "[" + format.formatTime(clock.now()) + "]"; }
 };
 
+// Delivers one heartbeat from an ADC, and logs it so the daily report can count it.
 static void sendHeartbeat(World& w, const AdcId& adc) {
     if (w.heartbeats.heartbeatReceived(adc) == HeartbeatVerdict::Accepted) {
         w.heartbeatLog.record(adc, w.clock.now());
@@ -176,6 +179,7 @@ static void showStatusChanges(World& w) {
     }
 }
 
+// Gives the daily report its chance to run, printing only results worth seeing.
 static void runDaily(World& w, bool always) {
     DailyVerdict v = w.reports.generateDaily(w.clock.now());
     if (v == DailyVerdict::Sent) {
@@ -207,6 +211,8 @@ static void periodicChecks(World& w) {
     runDaily(w, false);
 }
 
+// Moves the fake clock forward in 10 s steps, sending heartbeats from ADCs that
+// are not silenced and running the periodic checks at each step.
 static void advance(World& w, long long seconds) {
     while (seconds > 0) {
         long long step = seconds < TICK_SECONDS ? seconds : TICK_SECONDS;
@@ -236,6 +242,7 @@ static std::string hospitalAlarm(World& w, const std::string& medication) {
     return latest;
 }
 
+// Prints every alarm with its type, ADC, severity, state and who it goes to.
 static void showAlarms(World& w) {
     // Alarm ids are handed out 1, 2, 3, ... so this walks them all.
     int shown = 0;
@@ -266,6 +273,7 @@ static AdcId readAdc(std::istringstream& in) {
     return parseAdc(word);
 }
 
+// Switches the demo user; each role has a fixed demo name.
 static bool parseRole(const std::string& text, User& user) {
     if (text == "technician")    { user = {"Tara", Role::Technician};     return true; }
     if (text == "pharmacist")    { user = {"Priya", Role::Pharmacist};    return true; }
@@ -273,6 +281,7 @@ static bool parseRole(const std::string& text, User& user) {
     return false;
 }
 
+// Maps the words typed after `alarm` to alarm types.
 static bool parseAlarmType(const std::string& text, AlarmType& type) {
     if (text == "offline")      { type = AlarmType::AdcOffline;             return true; }
     if (text == "connection")   { type = AlarmType::ConnectionLoss;         return true; }
@@ -290,6 +299,7 @@ static std::string restOfLine(std::istringstream& in) {
     return start == std::string::npos ? "" : rest.substr(start);
 }
 
+// The command list shown at start-up and by `help`.
 static void help() {
     std::cout <<
         "Commands (times in seconds; FROM/TO are offsets from now, negative = past):\n"
@@ -520,6 +530,7 @@ static const std::vector<std::string> MAINTENANCE_SCENARIO = {
     "alarms",
 };
 
+// Runs a scripted scenario line by line, as if each line were typed.
 static void runScenario(World& w, const std::vector<std::string>& lines) {
     for (const std::string& line : lines) {
         std::cout << (line[0] == '#' ? "" : "> ") << line << "\n";
@@ -527,6 +538,8 @@ static void runScenario(World& w, const std::vector<std::string>& lines) {
     }
 }
 
+// Starts the demo and reads commands until quit. `scenario` resets the world and
+// runs a script, so each scenario starts from the same state.
 int main() {
     auto world = std::make_unique<World>();
     std::cout << "HMS behaviour-hiding demo. Clock starts at "
