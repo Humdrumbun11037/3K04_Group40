@@ -13,6 +13,7 @@ static const long long CRITICAL_ESCALATION_SECONDS = 2 * 60;
 static const long long HIGH_ESCALATION_SECONDS = 10 * 60;
 // Low alarms never escalate.
 
+// How long an alarm of each severity may wait for someone to acknowledge it.
 static std::optional<long long> escalationLimit(Severity severity) {
     switch (severity) {
         case Severity::Critical: return CRITICAL_ESCALATION_SECONDS;
@@ -74,6 +75,7 @@ static bool isBlank(const std::string& text) {
     return true;
 }
 
+// An alarm stays open until it is resolved, so a repeat joins it until then.
 static bool isOpen(AlarmState state) {
     return state != AlarmState::Resolved;
 }
@@ -164,6 +166,8 @@ std::optional<AlarmInfo> AlarmResolution::find(AlarmId id) const {
     return found->second;
 }
 
+// Writes one alarm event to history and says whether it was really saved; the
+// callers change an alarm only if it was.
 bool AlarmResolution::store(const std::string& kind, const std::string& who,
                             const std::string& detail, const AdcId& adc) {
     return history.record({kind, who, detail, clock.now(), adc, ""}) == HistoryResult::Stored;

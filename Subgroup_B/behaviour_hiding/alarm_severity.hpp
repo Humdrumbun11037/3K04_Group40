@@ -30,8 +30,11 @@ struct SeverityResult {
     Severity severity;   // only meaningful when verdict == Ok
 };
 
+// Tells everyone how serious each kind of alarm is. Keeping the whole table here
+// means changing a severity touches only this module.
 class AlarmSeverity {
 public:
+    // Looks up one alarm type's severity, so staff can see which alarms to deal with first.
     // { Pre: none (an unknown type is rejected, not assumed away) }
     //   severityOf(type)
     // { Post: type is in the table      => verdict Ok, severity from the table

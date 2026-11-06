@@ -75,6 +75,8 @@ struct SummaryResult {
     Summary summary;   // entries empty unless verdict == Summarized
 };
 
+// Decides what goes into the daily report and the activity summaries, and when
+// the daily report is due. How the reports look is report formatting's job.
 class ReportTypes {
 public:
     // { Post: no day is done yet }
@@ -83,6 +85,8 @@ public:
                 const hms::behaviour::AdcRegistry& registry, hms::behaviour::ReportSender& sender,
                 const hms::behaviour::Permissions& permissions);
 
+    // Run on every tick: sends the daily report once a day after 06:00, and keeps
+    // retrying if it fails, so no day's report is quietly lost.
     // { Pre: now is hospital local time in seconds; call it regularly (every tick) }
     //   generateDaily(now)
     // { Post: the first matching row decides the result:
@@ -96,6 +100,8 @@ public:
     //                                                    was sent; today is marked done }
     DailyVerdict generateDaily(long long now);
 
+    // Builds a filtered list of past activity for a pharmacist or administrator and
+    // records who asked, so looking at the records is itself on the record.
     // { Pre: none }
     //   summary(user, filters)
     // { Post: the first matching row decides the verdict:

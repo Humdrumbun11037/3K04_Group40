@@ -65,12 +65,16 @@ struct Escalation {
     Severity severity;
 };
 
+// Follows every alarm from raised to resolved. It makes sure nobody can close an
+// alarm without saying why, and that ignored alarms are passed up to a supervisor.
 class AlarmResolution {
 public:
     // { Post: no alarms }
     AlarmResolution(const hms::behaviour::Clock& clock, hms::behaviour::History& history,
                     const hms::behaviour::Permissions& permissions);
 
+    // Records a new alarm, or joins an identical one that is still open, so staff
+    // are not flooded with repeats.
     // { Pre: none }
     //   add(adc, type, destination, detail)
     // { Post: the first matching row decides the result:
@@ -83,6 +87,7 @@ public:
     AddResult add(const hms::behaviour::AdcId& adc, AlarmType type, hms::behaviour::Role destination,
                   const std::string& detail = "");
 
+    // A user says "I've seen this"; that stops the alarm being escalated.
     // { Pre: none }
     //   acknowledge(user, id)
     // { Post: the first matching row decides the result:
@@ -95,6 +100,7 @@ public:
     //         Rows 1-4 change nothing. }
     AcknowledgeVerdict acknowledge(const hms::behaviour::User& user, AlarmId id);
 
+    // Closes an alarm. A note is required, so the history says who fixed it and how.
     // { Pre: none }
     //   resolve(user, id, note)
     // { Post: the first matching row decides the result:
@@ -109,6 +115,8 @@ public:
     //         Rows 1-5 change nothing. }
     ResolveVerdict resolve(const hms::behaviour::User& user, AlarmId id, const std::string& note);
 
+    // Run on every tick: alarms left unacknowledged too long go to a supervisor, or
+    // become more severe if there is no one higher to send them to.
     // { Pre: none }
     //   escalateDue()
     // { Post: every alarm that is Raised, not yet escalated, and older than its
@@ -119,6 +127,7 @@ public:
     //         returns the escalations made }
     std::vector<Escalation> escalateDue();
 
+    // Lets the dashboard read one alarm's current details.
     // { Pre: none }
     //   find(id)
     // { Post: the alarm's details, or nothing if there is no alarm with this id }

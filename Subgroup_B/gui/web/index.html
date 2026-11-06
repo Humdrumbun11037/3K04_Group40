@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HMS Demo</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- HMS demo page. Everything it shows comes from the real behaviour-hiding
+     modules through the local API (/api/...). No outside links or files. -->
+<header class="top">
+  <h1>Hospital Monitoring System <span class="sub">behaviour-hiding demo</span></h1>
+  <div class="top-controls">
+    <div class="clock" aria-live="polite"><span class="label">Clock</span> <strong id="clock">…</strong></div>
+    <label class="label" for="role">You are</label>
+    <select id="role">
+      <option value="technician">Tara (Technician)</option>
+      <option value="pharmacist">Priya (Pharmacist)</option>
+      <option value="administrator">Alex (Administrator)</option>
+    </select>
+    <button id="restart" class="secondary" type="button">Restart</button>
+  </div>
+</header>
+
+<div id="message" class="message" role="status" aria-live="polite">Loading…</div>
+
+<nav class="tabs" role="tablist" aria-label="Screens">
+  <button role="tab" data-tab="dashboard">Dashboard</button>
+  <button role="tab" data-tab="alarms">Alarms</button>
+  <button role="tab" data-tab="inventory">Inventory</button>
+  <button role="tab" data-tab="maintenance">Maintenance</button>
+  <button role="tab" data-tab="reports">Reports</button>
+  <button role="tab" data-tab="history">History</button>
+  <button role="tab" data-tab="simulation">Simulation</button>
+</nav>
+
+<main>
+<section id="dashboard" class="panel" role="tabpanel">
+  <h2>ADCs</h2>
+  <table id="adc-table"><thead><tr><th>ADC</th><th>Status</th><th>Maintenance</th><th>Heartbeats</th><th>Last heartbeat</th></tr></thead><tbody></tbody></table>
+  <h2>Open alarms</h2>
+  <div class="filters" id="dash-filters"></div>
+  <table id="dash-alarms"><thead><tr><th>#</th><th>Severity</th><th>Type</th><th>Where</th><th>State</th><th>Sent to</th><th>Raised</th></tr></thead><tbody></tbody></table>
+  <h2>Recent activity</h2>
+  <ol id="feed" class="feed"></ol>
+</section>
+
+<section id="alarms" class="panel" role="tabpanel" hidden>
+  <h2>All alarms</h2>
+  <p class="hint">Acknowledging stops escalation. Resolving needs a note: a blank note is rejected (NoExplanation).</p>
+  <div class="filters" id="alarm-filters"></div>
+  <table id="alarm-table"><thead><tr><th>#</th><th>Severity</th><th>Type</th><th>Where</th><th>State</th><th>Sent to</th><th>Raised</th><th>Actions</th></tr></thead><tbody></tbody></table>
+</section>
+
+<section id="inventory" class="panel" role="tabpanel" hidden>
+  <h2>Stock in each ADC</h2>
+  <table id="stock-table"><thead><tr><th>ADC</th><th>Medication</th><th>Count</th><th>Capacity</th><th>Level</th></tr></thead><tbody></tbody></table>
+  <h2>Across the hospital (reserves + every ADC)</h2>
+  <table id="hospital-table"><thead><tr><th>Medication</th><th>Reserve</th><th>ADCs</th><th>Total</th><th>Level</th><th>Hospital alarm</th></tr></thead><tbody></tbody></table>
+  <div class="forms">
+    <form id="form-withdraw" class="card">
+      <h3>ADC upload: withdraw or deposit</h3>
+      <label>ADC <input name="adc" value="ADC-1" required></label>
+      <label>Medication <input name="med" value="Morphine" required></label>
+      <label>Amount <input name="amount" type="number" value="5" required></label>
+      <div class="buttons"><button name="op" value="withdraw">Withdraw</button><button name="op" value="deposit" class="secondary">Deposit</button></div>
+    </form>
+    <form id="form-set" class="card">
+      <h3>Manual change to an ADC count</h3>
+      <label>ADC <input name="adc" value="ADC-1" required></label>
+      <label>Medication <input name="med" value="Morphine" required></label>
+      <label>New count <input name="count" type="number" value="50" required></label>
+      <label>Explanation <input name="explanation" placeholder="required"></label>
+      <div class="buttons"><button>Change count</button></div>
+    </form>
+    <form id="form-reserve" class="card">
+      <h3>Manual change to a pharmacy reserve</h3>
+      <label>Medication <input name="med" value="Insulin" required></label>
+      <label>New count <input name="count" type="number" value="20" required></label>
+      <label>Explanation <input name="explanation" placeholder="required"></label>
+      <div class="buttons"><button>Change reserve</button></div>
+    </form>
+  </div>
+</section>
+
+<section id="maintenance" class="panel" role="tabpanel" hidden>
+  <h2>Maintenance windows</h2>
+  <p class="hint">Only a Technician may schedule or cancel (agreed table). At most 12 hours; no overlaps on one ADC.</p>
+  <table id="window-table"><thead><tr><th>ADC</th><th>Start</th><th>End</th><th>State</th><th>Actions</th></tr></thead><tbody></tbody></table>
+  <form id="form-schedule" class="card">
+    <h3>Schedule a window</h3>
+    <label>ADC <input name="adc" value="ADC-2" required></label>
+    <label>Starts in (minutes) <input name="startMin" type="number" value="0" required></label>
+    <label>Length (minutes) <input name="lengthMin" type="number" value="10" required></label>
+    <div class="buttons"><button>Schedule</button></div>
+  </form>
+</section>
+
+<section id="reports" class="panel" role="tabpanel" hidden>
+  <div class="forms">
+    <form id="form-daily" class="card">
+      <h3>Daily report</h3>
+      <p class="hint">Sent once a day at or after 06:00, covering the previous 24 hours.</p>
+      <div class="buttons"><button>Send / show today's report</button></div>
+    </form>
+    <form id="form-summary" class="card">
+      <h3>Activity summary</h3>
+      <p class="hint">Pharmacist or Administrator only. Every request is audited.</p>
+      <label>Last (hours) <input name="hours" type="number" value="24" required></label>
+      <label>ADC <input name="adc" placeholder="any"></label>
+      <label>Medication <input name="med" placeholder="any"></label>
+      <label>Actor <input name="actor" placeholder="any"></label>
+      <div class="buttons"><button>Request summary</button></div>
+    </form>
+  </div>
+  <h2>Report</h2>
+  <pre id="report-text" class="report" tabindex="0">(none yet)</pre>
+</section>
+
+<section id="history" class="panel" role="tabpanel" hidden>
+  <form id="form-history" class="card wide">
+    <h3>Search history</h3>
+    <label>Last (hours) <input name="hours" type="number" value="24"></label>
+    <label>ADC <input name="adc" placeholder="any"></label>
+    <label>Medication <input name="med" placeholder="any"></label>
+    <label>Actor <input name="actor" placeholder="any"></label>
+    <label>Kind starts with <input name="kind" placeholder="any, e.g. Alarm"></label>
+    <div class="buttons"><button>Search</button></div>
+  </form>
+  <table id="history-table"><thead><tr><th>Time</th><th>Who</th><th>Kind</th><th>Where</th><th>Medication</th><th>Detail</th></tr></thead><tbody></tbody></table>
+</section>
+
+<section id="simulation" class="panel" role="tabpanel" hidden>
+  <div class="forms">
+    <div class="card">
+      <h3>Clock</h3>
+      <div class="buttons wrap">
+        <button data-advance="10">+10 s</button><button data-advance="60">+1 min</button>
+        <button data-advance="180">+3 min</button><button data-advance="600">+10 min</button>
+        <button data-advance="3600">+1 h</button><button id="to-six">To 06:00</button>
+      </div>
+      <form id="form-advance" class="inline"><label>Seconds <input name="seconds" type="number" value="120" required></label><button>Advance</button></form>
+    </div>
+    <div class="card">
+      <h3>Scenarios</h3>
+      <p class="hint">Each one restarts the HMS, runs a few steps, and leaves the result to explore.</p>
+      <div class="buttons wrap">
+        <button data-scenario="offline">ADC offline</button>
+        <button data-scenario="maintenance">Offline in maintenance</button>
+        <button data-scenario="escalation">Escalation</button>
+        <button data-scenario="lowstock">Low stock</button>
+        <button data-scenario="discrepancy">Discrepancy</button>
+        <button data-scenario="daily">Daily report</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Make things fail</h3>
+      <label class="check"><input type="checkbox" id="fail-history"> History store fails (reads and writes)</label>
+      <label class="check"><input type="checkbox" id="fail-sender"> Report sending fails</label>
+    </div>
+  </div>
+  <h2>Simulated ADCs</h2>
+  <table id="sim-adcs"><thead><tr><th>ADC</th><th>Status</th><th>Heartbeats</th><th>Actions</th></tr></thead><tbody></tbody></table>
+  <div class="forms">
+    <form id="form-add-adc" class="card"><h3>Register an ADC</h3><label>ADC <input name="adc" value="ADC-3" required></label><div class="buttons"><button>Register</button></div></form>
+    <form id="form-raise" class="card">
+      <h3>Raise a test alarm</h3>
+      <label>ADC <input name="adc" value="ADC-1" required></label>
+      <label>Type <select name="type">
+        <option>UnauthorizedAccess</option><option>AdcOffline</option><option>IncorrectMessageFormat</option>
+        <option>InventoryLow</option><option>ConnectionLoss</option><option>InventoryDiscrepancy</option>
+      </select></label>
+      <label>Detail <input name="detail" placeholder="optional"></label>
+      <div class="buttons"><button>Raise</button></div>
+    </form>
+  </div>
+  <h2>Who may do what (agreed permission table)</h2>
+  <table id="perm-table"><thead><tr><th>Action</th><th>Pharmacist</th><th>Technician</th><th>Administrator</th></tr></thead><tbody></tbody></table>
+</section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

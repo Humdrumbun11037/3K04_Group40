@@ -27,6 +27,8 @@ ScheduleVerdict Maintenance::schedule(const User& user, const AdcId& adc,
     return ScheduleVerdict::Created;
 }
 
+// Rows are checked in order, like schedule. Window states are brought up to date
+// first, so a window that has already ended reads as finished, not cancellable.
 CancelVerdict Maintenance::cancel(const User& user, const AdcId& adc, long long start) {
     advanceTo(clock.now());   // so a window that has ended reads as Completed
     Window* window = findWindow(adc, start);
@@ -39,6 +41,7 @@ CancelVerdict Maintenance::cancel(const User& user, const AdcId& adc, long long 
     return CancelVerdict::Cancelled;
 }
 
+// Catches up on any windows that have started or ended, then looks for an active one.
 bool Maintenance::isInMaintenance(const AdcId& adc, long long now) {
     advanceTo(now);
     for (const Window& w : windows) {

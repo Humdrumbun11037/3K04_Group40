@@ -19,6 +19,7 @@ HospitalStock::HospitalStock(const Clock& clock, const InventoryRecord& adcs, Hi
                              AlarmNotifier& notifier, const Permissions& permissions)
     : clock(clock), adcs(adcs), history(history), notifier(notifier), permissions(permissions) {}
 
+// Set-up only, like InventoryRecord::addItem: no history entry and no alarm.
 AddItemVerdict HospitalStock::addReserve(const std::string& medication, int count, int capacity) {
     if (count < 0 || capacity <= 0)                    return AddItemVerdict::IncorrectValue;
     if (reserves.count(medication) > 0)                return AddItemVerdict::AlreadyExists;
@@ -67,6 +68,7 @@ HospitalStockLevel HospitalStock::check(const std::string& medication) const {
     return level;
 }
 
+// Every medication found in the reserves or in any ADC, in name order.
 std::vector<HospitalStockLevel> HospitalStock::all() const {
     std::set<std::string> medications;
     for (const auto& [medication, reserve] : reserves) medications.insert(medication);

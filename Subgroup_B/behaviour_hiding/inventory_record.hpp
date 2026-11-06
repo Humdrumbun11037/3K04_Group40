@@ -41,6 +41,8 @@ struct StockItem {
     int capacity;
 };
 
+// The HMS's copy of how much of each medication is in each ADC. Every change is
+// written to history first, so the counts can always be explained later.
 class InventoryRecord {
 public:
     // { Post: no items }
@@ -48,6 +50,7 @@ public:
                     hms::behaviour::AlarmNotifier& notifier,
                     const hms::behaviour::Permissions& permissions);
 
+    // Sets up a medication in an ADC when the system is configured.
     // { Pre: none }
     //   addItem(adc, medication, count, capacity)
     // { Post: adc <= 0, count < 0,
@@ -57,6 +60,8 @@ public:
     AddItemVerdict addItem(const hms::behaviour::AdcId& adc, const std::string& medication,
                            int count, int capacity);
 
+    // Applies a withdrawal reported by an ADC. If the ADC took more than the HMS
+    // thought it had, the gap is recorded and flagged rather than refused.
     // { Pre: the upload was already validated by message processing }
     //   withdraw(adc, medication, amount)
     // { Post: the first matching row decides the result:
@@ -76,6 +81,7 @@ public:
     InventoryVerdict withdraw(const hms::behaviour::AdcId& adc, const std::string& medication,
                               int amount);
 
+    // Applies a restock reported by an ADC.
     // { Pre: the upload was already validated by message processing }
     //   deposit(adc, medication, amount)
     // { Post: the first matching row decides the result:
@@ -90,6 +96,8 @@ public:
     InventoryVerdict deposit(const hms::behaviour::AdcId& adc, const std::string& medication,
                              int amount);
 
+    // A pharmacist or administrator corrects a count by hand, for example after a
+    // stock take. An explanation is required so the change can be audited.
     // { Pre: none }
     //   manualChange(user, adc, medication, newCount, explanation)
     // { Post: the first matching row decides the result:
@@ -107,11 +115,13 @@ public:
                                   const std::string& medication, int newCount,
                                   const std::string& explanation);
 
+    // Reads one count (nothing if the medication is not stocked in that ADC).
     // { Pre: none }
     //   count(adc, medication)
     // { Post: the current count, or nothing if the item is not tracked }
     std::optional<int> count(const hms::behaviour::AdcId& adc, const std::string& medication) const;
 
+    // Lists everything tracked, for the stock screen and for hospital stock.
     // { Pre: none }
     //   items()
     // { Post: a copy of every tracked item, ordered by ADC then medication }

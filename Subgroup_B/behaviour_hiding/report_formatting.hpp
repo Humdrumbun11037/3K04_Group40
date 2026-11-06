@@ -17,13 +17,17 @@ uses: report types (its data types only)
 
 #include "behaviour_hiding/report_types.hpp"
 
+// Turns report data into plain text people can read. Changing the layout changes
+// only this module, not what the reports contain.
 class ReportFormatting {
 public:
+    // Shows a time as a readable local date and time.
     // { Pre: seconds is hospital local time since 1970-01-01 00:00 (may be negative) }
     //   formatTime(seconds)
     // { Post: returns "YYYY-MM-DD HH:MM:SS" }
     std::string formatTime(long long seconds) const;
 
+    // Lays out the daily report, section by section.
     // { Pre: none }
     //   formatDaily(report)
     // { Post: returns a "DAILY REPORT" header, a window line, a blank line, then the
@@ -31,6 +35,7 @@ public:
     //         ADC health, each titled with its count; an empty section shows "(none)" }
     std::string formatDaily(const DailyReport& report) const;
 
+    // Lays out an activity summary, one line per record.
     // { Pre: none }
     //   formatSummary(summary)
     // { Post: returns an "ACTIVITY SUMMARY" header, a filter line, an entry count,

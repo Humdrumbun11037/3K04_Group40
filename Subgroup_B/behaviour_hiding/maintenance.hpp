@@ -34,12 +34,16 @@ enum class ScheduleVerdict { Created, NotAuthorized, UnknownAdc, InvalidWindow, 
                              Overlap };
 enum class CancelVerdict { Cancelled, NotAuthorized, UnknownWindow, NotCancellable };
 
+// Keeps the planned maintenance windows for each ADC. While a window is active a
+// silent ADC is expected, so ADC heartbeats raises no alarm for it.
 class Maintenance : public hms::behaviour::MaintenanceStatus {
 public:
     // { Post: no windows, so the invariant holds }
     Maintenance(const hms::behaviour::Clock& clock, const hms::behaviour::AdcRegistry& registry,
                 hms::behaviour::History& history, const hms::behaviour::Permissions& permissions);
 
+    // Books a maintenance window, refusing one that is not allowed (wrong role,
+    // unknown ADC, bad times, too long, or clashing with another window).
     // { Pre: none }
     //   schedule(user, adc, start, end)
     // { Post: the first matching row decides the result:
@@ -54,6 +58,7 @@ public:
     ScheduleVerdict schedule(const hms::behaviour::User& user, const hms::behaviour::AdcId& adc,
                              long long start, long long end);
 
+    // Cancels a window that has not finished, for example when the work is called off.
     // { Pre: none }
     //   cancel(user, adc, start)
     // { Post: the first matching row decides the result:
@@ -67,6 +72,7 @@ public:
     CancelVerdict cancel(const hms::behaviour::User& user, const hms::behaviour::AdcId& adc,
                          long long start);
 
+    // Answers "is this ADC in maintenance right now?" for ADC heartbeats.
     // { Pre: now is not earlier than any time asked about before }
     //   isInMaintenance(adc, now)
     // { Post: every window's state is brought up to date for now, with a history

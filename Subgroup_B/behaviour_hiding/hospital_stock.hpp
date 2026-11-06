@@ -49,6 +49,8 @@ struct HospitalStockLevel {
     HospitalStockVerdict verdict;
 };
 
+// Adds up each medication across the pharmacy reserves and every ADC, so the
+// pharmacy can see when the whole hospital is running low, not just one cabinet.
 class HospitalStock {
 public:
     // The ADC id used for hospital-wide alarms and history entries (shown as "Hospital").
@@ -59,6 +61,7 @@ public:
                   hms::behaviour::History& history, hms::behaviour::AlarmNotifier& notifier,
                   const hms::behaviour::Permissions& permissions);
 
+    // Sets up a pharmacy reserve when the system is configured.
     // { Pre: none }
     //   addReserve(medication, count, capacity)
     // { Post: count < 0 or capacity <= 0  => IncorrectValue, nothing added
@@ -66,6 +69,8 @@ public:
     //         otherwise                   => Added (no history entry, no alarm) }
     AddItemVerdict addReserve(const std::string& medication, int count, int capacity);
 
+    // A pharmacist or administrator corrects a reserve count by hand, with an
+    // explanation for the record.
     // { Pre: none }
     //   manualReserveChange(user, medication, newCount, explanation)
     // { Post: the first matching row decides the result:
@@ -81,6 +86,7 @@ public:
     ReserveVerdict manualReserveChange(const hms::behaviour::User& user, const std::string& medication,
                                        int newCount, const std::string& explanation);
 
+    // Works out one medication's hospital-wide totals and whether they are low.
     // { Pre: none }
     //   check(medication)
     // { Post: totals = reserve (if any) + every ADC holding the medication;
@@ -91,12 +97,15 @@ public:
     //         3. otherwise                                  => NotLow }
     HospitalStockLevel check(const std::string& medication) const;
 
+    // The totals for every medication, for the hospital stock screen.
     // { Pre: none }
     //   all()
     // { Post: check() for every medication in the reserves or any ADC,
     //         ordered by medication name }
     std::vector<HospitalStockLevel> all() const;
 
+    // Run on every tick and after each stock change: raises the hospital low-stock
+    // alarm once when a medication first turns low, not over and over.
     // { Pre: none }
     //   checkAll()
     // { Post: for every medication in all() that is Low now but was not Low at the
