@@ -1,6 +1,5 @@
-#ifndef SW0_USER_DATABASE_HPP
-#define SW0_USER_DATABASE_HPP
-
+#ifndef SW0_USERDATABASE_HPP
+#define SW0_USERDATABASE_HPP
 #include <string>
 
 namespace SW0 {

@@ -7,11 +7,12 @@ namespace SW0 {
         std::string authority;
     };
     
-    // Default users
+    // Added default Technician and Admin users
     static std::unordered_map<std::string, User> users = {
         {"nurse_jane", {"hash123", "Nurse"}},
         {"pharm_bob", {"hash456", "Pharmacist"}},
-        {"tech_tom", {"hash789", "Technician"}}
+        {"tech_tom", {"hash789", "Technician"}},
+        {"admin_alice", {"hash000", "Admin"}}
     };
 
     std::string Check_user(std::string name, std::string password_hash) {
