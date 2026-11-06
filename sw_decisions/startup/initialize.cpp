@@ -49,7 +49,7 @@ HMSystem::HMSystem(const ExternalModules& ext,
       authorization(users, settings, reports, ext.clock),
       maintenance(ext.clock, reports),
       inventoryChanges(ext.inventory, adcs, ext.dashboard, reports, ext.clock),
-      daily(ext.clock, ext.storage) {}
+      daily(ext.clock, ext.storage, ext.dailyReport) {}
 
 bool HMSystem::createInitialAdministrator(const std::string& userId, const std::string& password) {
     if (!users.usersWithRole(UserRole::Administrator).empty()) return false;

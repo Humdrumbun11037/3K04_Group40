@@ -16,6 +16,7 @@ so those modules can change their secrets without touching sw_decisions.
     AlarmSeverityRules behav_hiding/alarms/alarm_severity
     AlarmResolver      behav_hiding/alarms/alarm_resolution
     ReportTypes        behav_hiding/reports (report_types + report_formatting)
+    DailyReportGenerator behav_hiding/reports/report_types (generateDaily)
     InventoryStore     behav_hiding/inventory_manager/inventory_record
     HeartbeatMonitor   behav_hiding/messaging_period/adc_heartbeats
 */
@@ -134,6 +135,16 @@ public:
                                const std::string& from,
                                const std::string& to,
                                const std::vector<Event>& events) const = 0;
+};
+
+// The daily report. When it is due, what it contains, and retrying after a
+// failure are all decided by behav_hiding/reports (report_types); sw_decisions
+// only gives it the chance to run. Called on every tick by startup/daily_tasks.
+class DailyReportGenerator {
+public:
+    virtual ~DailyReportGenerator() = default;
+    // Sends today's report if it is due and not yet sent; otherwise does nothing.
+    virtual void generateDaily(const std::string& now) = 0;
 };
 
 // ---------------------------------------------------------------- inventory

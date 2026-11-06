@@ -42,6 +42,7 @@ struct ExternalModules {
     const ReportTypes& reportTypes;
     InventoryStore& inventory;
     HeartbeatMonitor& heartbeats;
+    DailyReportGenerator& dailyReport;
 };
 
 class HMSystem {
@@ -61,7 +62,7 @@ public:
 
     // One pass of the main loop: route waiting ADC messages, escalate
     // unresolved alarms, start / end maintenance windows, and run the
-    // once-a-day tasks when the day changes.
+    // daily tasks (daily report when due, archiving once per day).
     void tick();
 
     // Members are declared (and therefore built) in dependency order.
