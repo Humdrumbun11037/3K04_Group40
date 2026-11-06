@@ -54,7 +54,6 @@ std::vector<uint8_t> hexToBytes(const std::string& hex)
     };
 
     std::vector<uint8_t> result;
-    result.reserve(hex.size() / 2);
 
     for (std::size_t i = 0; i < hex.size(); i += 2) {
         int high = hexValue(hex[i]);
@@ -64,9 +63,7 @@ std::vector<uint8_t> hexToBytes(const std::string& hex)
             throw std::runtime_error("Invalid hexadecimal storage record.");
         }
 
-        result.push_back(
-            static_cast<uint8_t>((high << 4) | low)
-        );
+        result.push_back(static_cast<uint8_t>((high << 4) | low));
     }
 
     return result;

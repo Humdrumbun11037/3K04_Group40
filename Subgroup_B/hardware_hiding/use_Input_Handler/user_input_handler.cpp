@@ -6,7 +6,7 @@ std::optional<UserInput> ConsoleInputHandler::getInput()
 {
     UserInput input;
 
-    std::cout << "Enter anything: ";
+    std::cout << "Enter: ";
 
     if (!std::getline(std::cin, input.input)) {
         return std::nullopt;
