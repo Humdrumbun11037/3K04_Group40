@@ -47,11 +47,9 @@ struct ExternalModules {
 
 class HMSystem {
 public:
-    // Throws std::logic_error if the user settings are unusable, and
-    // std::invalid_argument if the key is the wrong size.
+    // Throws std::logic_error if the user settings are unusable.
     HMSystem(const ExternalModules& external,
-             std::vector<uint8_t> encryptionKey,
-             std::unique_ptr<IEncryptionStrategy> strategy = EncryptionManager::defaultStrategy());
+            EncryptionManager& encryptionManager);
 
     HMSystem(const HMSystem&) = delete;
     HMSystem& operator=(const HMSystem&) = delete;
@@ -71,7 +69,7 @@ public:
     UserRegistry users;
     ReportGenerator reports;
     ADClist adcs;
-    EncryptionManager encryption;
+    EncryptionManager& encryption;
     PatientInfoStripper stripper;
     EventScanner scanner;
     AlarmNotifier alarms;

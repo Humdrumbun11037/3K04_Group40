@@ -6,12 +6,10 @@
 
 # Compiler and flags (-MMD -MP: rebuild a file when a header it includes changes)
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra -I. -MMD -MP
+CXXFLAGS = -std=c++17 -Wall -Wextra -I. -I../sw_decisions -I../Subgroup_A/inc -MMD -MP
 
-# Directories (a module folder that does not exist yet is simply skipped)
-# Only behaviour_hiding is built. Other groups add their folder here once it
-# compiles (see INTEGRATION_PROPOSAL.md).
-MODULE_DIRS = behaviour_hiding
+# Behaviour Hiding and Hardware Hiding are compiled separately.
+
 TEST_DIR = tests
 OBJ_DIR = obj
 BIN_DIR = bin
@@ -19,14 +17,26 @@ BIN_DIR = bin
 # rwildcard: like wildcard, but also searches subfolders
 rwildcard = $(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
 
-SOURCES = $(foreach dir,$(MODULE_DIRS),$(call rwildcard,$(dir),*.cpp))
-OBJECTS = $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(SOURCES))
+BEHAVIOUR_SOURCES = $(call rwildcard,behaviour_hiding,*.cpp)
+HARDWARE_SOURCES = $(call rwildcard,hardware_hiding,*.cpp)
+
+BEHAVIOUR_OBJECTS = $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(BEHAVIOUR_SOURCES))
+HARDWARE_OBJECTS = $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(HARDWARE_SOURCES))
+
+# Subgroup A transceiver implementation required by Hardware Hiding
+TRANSCEIVER_OBJECT = $(OBJ_DIR)/HW1_Transceiver.o
+
+ALL_OBJECTS = $(BEHAVIOUR_OBJECTS) $(HARDWARE_OBJECTS) $(TRANSCEIVER_OBJECT)
+
+$(TRANSCEIVER_OBJECT): ../Subgroup_A/src/HW1_Transceiver.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 TEST_SOURCES = $(wildcard $(TEST_DIR)/*.cpp)
 TEST_BINS = $(patsubst $(TEST_DIR)/%.cpp,$(BIN_DIR)/%,$(TEST_SOURCES))
 DEMO = $(BIN_DIR)/demo
 
 # Default build target: compile every module
-all: $(OBJECTS)
+all: $(ALL_OBJECTS)
 
 # Compile a module .cpp into obj/, keeping its folder path
 $(OBJ_DIR)/%.o: %.cpp
@@ -34,18 +44,18 @@ $(OBJ_DIR)/%.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Link one test program against all module objects
-$(BIN_DIR)/%: $(TEST_DIR)/%.cpp $(OBJECTS)
+$(BIN_DIR)/%: $(TEST_DIR)/%.cpp $(BEHAVIOUR_OBJECTS)
 	@mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $< $(OBJECTS) -o $@
+	$(CXX) $(CXXFLAGS) $< $(BEHAVIOUR_OBJECTS) -o $@
 
 # Build and run every test program; stop at the first failure
 test: $(TEST_BINS)
 	@for t in $(TEST_BINS); do ./$$t || exit 1; done
 
 # Build and run the console demo
-$(DEMO): demo_main.cpp $(OBJECTS)
+$(DEMO): demo_main.cpp $(BEHAVIOUR_OBJECTS)
 	@mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $< $(OBJECTS) -o $@
+	$(CXX) $(CXXFLAGS) $< $(BEHAVIOUR_OBJECTS) -o $@
 
 demo: $(DEMO)
 	./$(DEMO)
@@ -54,6 +64,6 @@ demo: $(DEMO)
 clean:
 	rm -rf $(OBJ_DIR) $(BIN_DIR)
 
--include $(OBJECTS:.o=.d) $(TEST_BINS:=.d) $(DEMO).d
+-include $(ALL_OBJECTS:.o=.d) $(TEST_BINS:=.d) $(DEMO).d
 
 .PHONY: all test demo clean

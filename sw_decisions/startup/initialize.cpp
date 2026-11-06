@@ -34,14 +34,13 @@ UserSettings HMSystem::loadCheckedSettings() {
 }
 
 HMSystem::HMSystem(const ExternalModules& ext,
-                   std::vector<uint8_t> encryptionKey,
-                   std::unique_ptr<IEncryptionStrategy> strategy)
+                   EncryptionManager& encryptionManager)
     : external(ext),
       settings(loadCheckedSettings()),
       users(),
       reports(ext.storage, ext.reportTypes, ext.clock),
       adcs(&reports),
-      encryption(std::move(strategy), std::move(encryptionKey)),
+      encryption(encryptionManager),
       stripper(),
       scanner(ext.clock, reports),
       alarms(ext.alarmSeverity, ext.alarmResolution, users, ext.dashboard, reports, ext.clock),
