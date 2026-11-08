@@ -12,7 +12,8 @@ namespace BH0 {
     int verify_connection() {
         if (SystemState::Fault_Mode != currentState) {
             if (HW1::Check_Connection() == 1) { 
-                currentState = SystemState::Offline_Mode; // Needs to be declared Online_Mode in SystemModes if used, defaulting to logic
+                // Link OK: back from an earlier failed Ping; otherwise no change.
+                if (currentState == SystemState::Offline_Mode) currentState = SystemState::Dispensation_Mode;
             } else {
                 currentState = SystemState::Offline_Mode;
                 BH5::alarm("CONNECTION_LOST");

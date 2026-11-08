@@ -32,7 +32,7 @@ namespace BH3 {
     int RequestDrug(std::string drugname, int dose, std::string unit, std::string username) {        
         (void)unit; // Silence compiler warning
         
-        if (currentState != SystemState::Dispensation_Mode) {
+        if (currentState != SystemState::Dispensation_Mode && currentState != SystemState::Offline_Mode) { // Offline: local dispensing continues
             return -1; 
         }
         if (dose <= 0) { 
