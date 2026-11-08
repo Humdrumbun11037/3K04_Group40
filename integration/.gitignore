@@ -1,0 +1,12 @@
+# Build output and programs: never commit binaries.
+build/
+*.o
+*.d
+*.exe
+*.out
+*.a
+
+# Run-time data: the HMS's encrypted audit trail and the shared key.
+run/
+*.log
+key.bin
